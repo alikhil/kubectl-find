@@ -1,0 +1,2 @@
+USE_EXISTING_CLUSTER=true
+KIND_CLUSTER_NAME=find-plugin-test-cluster

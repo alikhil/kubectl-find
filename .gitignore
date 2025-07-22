@@ -1,0 +1,5 @@
+.devenv
+.vscode/
+devenv.lock
+kubectl-find
+dist/
