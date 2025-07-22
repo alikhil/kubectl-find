@@ -29,7 +29,7 @@ Flags:
 ### Using [krew](https://krew.sigs.k8s.io/)
 
 ```shell
-krew install --manifest-uri https://github.com/alikhil/kubectl-find/blob/main/krew.yaml
+krew install --manifest-url https://raw.githubusercontent.com/alikhil/kubectl-find/refs/heads/main/krew.yaml
 ```
 
 ### Download binary
