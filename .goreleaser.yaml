@@ -8,10 +8,10 @@ before:
     # you may remove this if you don't need go generate
     - go generate ./...
 
-project_name: find
+project_name: kubectl-find
 
 builds:
-  - id: find
+  - id: kubectl-find
     goos:
     - linux
     - windows
