@@ -24,6 +24,18 @@ Flags:
   -f, --force                          Skip confirmation prompt before performing actions on resources.
 ```
 
+## Install
+
+### Using [krew](https://krew.sigs.k8s.io/)
+
+```shell
+krew install --manifest-uri https://github.com/alikhil/kubectl-find/blob/main/krew.yaml
+```
+
+### Download binary
+
+Download [latest release](https://github.com/alikhil/kubectl-find/releases) for your platform/os and save it under `$PATH` as `kubectl-find`
+
 ## Examples
 
 ### Filter using regex
