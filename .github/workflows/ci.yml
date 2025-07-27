@@ -26,7 +26,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: 2.1.6
+          version: v2.1.6
 
   test:
     name: Test
