@@ -2,7 +2,6 @@ package types
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"regexp"
 	"testing"
@@ -24,7 +23,6 @@ import (
 )
 
 func TestPodsHandler(t *testing.T) {
-
 	type shared struct {
 		resources []runtime.Object
 		in        *bytes.Buffer
@@ -55,7 +53,7 @@ func TestPodsHandler(t *testing.T) {
 	}{
 		{
 			name: "List Pods",
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(t *testing.T, f *fields, _ *shared) error {
 				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
 				m.EXPECT().PrintObjects(gomock.Cond(func(obj []unstructured.Unstructured) bool {
 					if len(obj) != 1 {
@@ -95,7 +93,7 @@ func TestPodsHandler(t *testing.T) {
 			shared: shared{
 				resources: []runtime.Object{},
 			},
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(t *testing.T, f *fields, _ *shared) error {
 				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
 				m.EXPECT().PrintObjects(gomock.Any(), gomock.Any()).Return(nil).Times(0)
 
@@ -105,7 +103,7 @@ func TestPodsHandler(t *testing.T) {
 		},
 		{
 			name: "List in empty namespace",
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(t *testing.T, f *fields, _ *shared) error {
 				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
 				m.EXPECT().PrintObjects(gomock.Any(), gomock.Any()).Return(nil).Times(0)
 
@@ -170,7 +168,10 @@ func TestPodsHandler(t *testing.T) {
 			name: "List pods matching regex",
 			prepare: func(t *testing.T, f *fields, s *shared) error {
 				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
-				m.EXPECT().PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[0:2]...)), gomock.Any()).Return(nil).Times(1)
+				m.EXPECT().
+					PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[0:2]...)), gomock.Any()).
+					Return(nil).
+					Times(1)
 				f.printer = m
 				return nil
 			},
@@ -178,7 +179,7 @@ func TestPodsHandler(t *testing.T) {
 				options: ActionOptions{
 					Namespace: "default",
 					Action:    ActionList,
-					NameRegex: regexp.MustCompile("test\\-.*"),
+					NameRegex: regexp.MustCompile(`test\-.*`),
 				},
 			},
 			shared: shared{
@@ -294,7 +295,10 @@ func TestPodsHandler(t *testing.T) {
 			name: "List pods with max age",
 			prepare: func(t *testing.T, f *fields, s *shared) error {
 				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
-				m.EXPECT().PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[2:]...)), gomock.Any()).Return(nil).Times(1)
+				m.EXPECT().
+					PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[2:]...)), gomock.Any()).
+					Return(nil).
+					Times(1)
 				f.printer = m
 				return nil
 			},
@@ -389,7 +393,7 @@ func TestPodsHandler(t *testing.T) {
 		},
 		{
 			name: "Delete matching pods with confirmation",
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
 				s.in.Write([]byte("y\n"))
 				return nil
 			},
@@ -423,18 +427,18 @@ func TestPodsHandler(t *testing.T) {
 			},
 			want: want{
 				check: func(t *testing.T, f *fields, s *shared) {
-					podList, err := f.clientSet.CoreV1().Pods("default").List(context.Background(), metav1.ListOptions{})
-					assert.NoError(t, err)
-					assert.Len(t, podList.Items, 0, "Expected no pods in default namespace after deletion")
+					podList, err := f.clientSet.CoreV1().Pods("default").List(t.Context(), metav1.ListOptions{})
+					require.NoError(t, err)
+					assert.Empty(t, podList.Items, "Expected no pods in default namespace after deletion")
 
-					podList2, err := f.clientSet.CoreV1().Pods("default2").List(context.Background(), metav1.ListOptions{})
-					assert.NoError(t, err)
+					podList2, err := f.clientSet.CoreV1().Pods("default2").List(t.Context(), metav1.ListOptions{})
+					require.NoError(t, err)
 					assert.Len(t, podList2.Items, 1, "Expected pods in default2 namespace after deletion")
 
 					outBytes, err := io.ReadAll(s.out)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					errOutBytes, err := io.ReadAll(s.errOut)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 
 					outStr := string(outBytes)
 					errOutStr := string(errOutBytes)
@@ -448,7 +452,7 @@ func TestPodsHandler(t *testing.T) {
 		},
 		{
 			name: "Delete matching pods cancelled",
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
 				s.in.Write([]byte("n\n"))
 				return nil
 			},
@@ -472,16 +476,16 @@ func TestPodsHandler(t *testing.T) {
 				},
 			},
 			want: want{
-				check: func(t *testing.T, f *fields, s *shared) {
-					podList, err := f.clientSet.CoreV1().Pods("default").List(context.Background(), metav1.ListOptions{})
-					assert.NoError(t, err)
+				check: func(t *testing.T, f *fields, _ *shared) {
+					podList, err := f.clientSet.CoreV1().Pods("default").List(t.Context(), metav1.ListOptions{})
+					require.NoError(t, err)
 					assert.Len(t, podList.Items, 1, "Expected 1 pod in default namespace after cancellation")
 				},
 			},
 		},
 		{
 			name: "Patch matching pods",
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
 				s.in.Write([]byte("y\n"))
 				return nil
 			},
@@ -507,15 +511,20 @@ func TestPodsHandler(t *testing.T) {
 			},
 			want: want{
 				check: func(t *testing.T, f *fields, s *shared) {
-					podList, err := f.clientSet.CoreV1().Pods("default").List(context.Background(), metav1.ListOptions{})
-					assert.NoError(t, err)
+					podList, err := f.clientSet.CoreV1().Pods("default").List(t.Context(), metav1.ListOptions{})
+					require.NoError(t, err)
 					assert.Len(t, podList.Items, 1, "Expected 1 pod in default namespace after patching")
-					assert.Equal(t, "true", podList.Items[0].Labels["patched"], "Expected pod to be patched with label 'patched=true'")
+					assert.Equal(
+						t,
+						"true",
+						podList.Items[0].Labels["patched"],
+						"Expected pod to be patched with label 'patched=true'",
+					)
 
 					outBytes, err := io.ReadAll(s.out)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					errOutBytes, err := io.ReadAll(s.errOut)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 
 					outStr := string(outBytes)
 					errOutStr := string(errOutBytes)
@@ -556,7 +565,7 @@ func TestPodsHandler(t *testing.T) {
 			}
 
 			args.options.Streams = &shared.streams
-			err := handler.HandleAction(context.Background(), args.options)
+			err := handler.HandleAction(t.Context(), args.options)
 			if want.err != nil {
 				require.Error(t, err)
 				require.EqualError(t, err, want.err.Error())
@@ -567,13 +576,10 @@ func TestPodsHandler(t *testing.T) {
 			if want.check != nil {
 				want.check(t, &ff, &shared)
 			}
-
 		}
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, test(tt.prepare, tt.args, tt.shared, tt.want))
 	}
-
 }

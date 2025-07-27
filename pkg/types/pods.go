@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -19,9 +20,8 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-var (
-	ValidPodStatuses = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
-)
+//nolint:gochecknoglobals
+var ValidPodStatuses = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
 
 func IsValidPodStatus(status string) bool {
 	status = strings.ToLower(status)
@@ -60,13 +60,11 @@ type PodHandler struct {
 
 // HandleAction implements ResourceHandler.
 func (p *PodHandler) HandleAction(ctx context.Context, options ActionOptions) error {
+	matcher := p.getMatcher(options)
 
-	matcher, err := p.getMatcher(options)
-	if err != nil {
-		return fmt.Errorf("failed to get matcher: %w", err)
-	}
-
-	pods, err := p.clientSet.CoreV1().Pods(options.Namespace).List(ctx, metav1.ListOptions{LabelSelector: options.LabelSelector})
+	pods, err := p.clientSet.CoreV1().
+		Pods(options.Namespace).
+		List(ctx, metav1.ListOptions{LabelSelector: options.LabelSelector})
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
 	}
@@ -82,10 +80,12 @@ func (p *PodHandler) HandleAction(ctx context.Context, options ActionOptions) er
 		return nil
 	}
 
-	if options.Action == ActionList {
+	switch options.Action {
+	case ActionList:
 		unstructuredPods := make([]unstructured.Unstructured, len(matchedPods))
 		for i, pod := range matchedPods {
-			unstr, err := runtime.DefaultUnstructuredConverter.ToUnstructured(pod)
+			var unstr map[string]interface{}
+			unstr, err = runtime.DefaultUnstructuredConverter.ToUnstructured(pod)
 			if err != nil {
 				return fmt.Errorf("failed to convert pod %s to unstructured: %w", pod.Name, err)
 			}
@@ -93,60 +93,96 @@ func (p *PodHandler) HandleAction(ctx context.Context, options ActionOptions) er
 		}
 
 		return p.printer.PrintObjects(unstructuredPods, options.Streams.Out)
-	} else if options.Action == ActionDelete {
-
+	case ActionDelete:
 		if !options.SkipConfirm {
-			options.Streams.ErrOut.Write([]byte("The following pods will be deleted:\n"))
+			_, err = options.Streams.ErrOut.Write([]byte("The following pods will be deleted:\n"))
+			if err != nil {
+				return fmt.Errorf("failed to write to error output: %w", err)
+			}
 			for _, pod := range matchedPods {
-				options.Streams.ErrOut.Write([]byte(fmt.Sprintf("- %s in namespace %s\n", pod.Name, pod.Namespace)))
+				_, err = fmt.Fprintf(options.Streams.ErrOut, "- %s in namespace %s\n", pod.Name, pod.Namespace)
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
 			}
 			if !prompts.AskForConfirmation(options.Streams) {
-				options.Streams.ErrOut.Write([]byte("Deletion cancelled.\n"))
+				_, err = options.Streams.ErrOut.Write([]byte("Deletion cancelled.\n"))
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
 				return nil
 			}
 		}
 		for _, pod := range matchedPods {
 			deletionPropagation := metav1.DeletePropagationBackground
-			err = p.clientSet.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{PropagationPolicy: &deletionPropagation})
+			err = p.clientSet.CoreV1().
+				Pods(pod.ObjectMeta.Namespace).
+				Delete(ctx, pod.Name, metav1.DeleteOptions{PropagationPolicy: &deletionPropagation})
 			if err != nil {
 				return fmt.Errorf("failed to delete pod %s: %w", pod.Name, err)
 			}
-			options.Streams.Out.Write([]byte(fmt.Sprintf("Deleted pod %s in namespace %s\n", pod.Name, pod.Namespace)))
+			_, err = fmt.Fprintf(options.Streams.Out, "Deleted pod %s in namespace %s\n", pod.Name, pod.Namespace)
+			if err != nil {
+				return fmt.Errorf("failed to write to output: %w", err)
+			}
 		}
 
 		return nil
-	} else if options.Action == ActionPatch {
+	case ActionPatch:
 		if options.Patch == "" {
-			return fmt.Errorf("patch content is required for patch action")
+			return errors.New("patch content is required for patch action")
 		}
 		if !options.SkipConfirm {
-			options.Streams.ErrOut.Write([]byte("The following pods will be patched:\n"))
+			_, err = options.Streams.ErrOut.Write([]byte("The following pods will be patched:\n"))
+			if err != nil {
+				return fmt.Errorf("failed to write to error output: %w", err)
+			}
 			for _, pod := range matchedPods {
-				options.Streams.ErrOut.Write([]byte(fmt.Sprintf("- %s in namespace %s\n", pod.Name, pod.Namespace)))
+				_, err = fmt.Fprintf(options.Streams.ErrOut, "- %s in namespace %s\n", pod.Name, pod.Namespace)
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
 			}
 			if !prompts.AskForConfirmation(options.Streams) {
-				options.Streams.ErrOut.Write([]byte("Patch cancelled.\n"))
+				_, err = options.Streams.ErrOut.Write([]byte("Patch cancelled.\n"))
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
 				return nil
 			}
 		}
 		for _, pod := range matchedPods {
-			_, err = p.clientSet.CoreV1().Pods(pod.ObjectMeta.Namespace).Patch(ctx, pod.Name, k8s_types.StrategicMergePatchType, []byte(options.Patch), metav1.PatchOptions{})
+			_, err = p.clientSet.CoreV1().
+				Pods(pod.ObjectMeta.Namespace).
+				Patch(ctx, pod.Name, k8s_types.StrategicMergePatchType, []byte(options.Patch), metav1.PatchOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to patch pod %s: %w", pod.Name, err)
 			}
-			options.Streams.Out.Write([]byte(fmt.Sprintf("Patched pod %s in namespace %s\n", pod.Name, pod.Namespace)))
+			_, err = fmt.Fprintf(options.Streams.Out, "Patched pod %s in namespace %s\n", pod.Name, pod.Namespace)
+			if err != nil {
+				return fmt.Errorf("failed to write to output: %w", err)
+			}
 		}
-	} else if options.Action == ActionExec {
+	case ActionExec:
 		if options.Exec == "" {
-			return fmt.Errorf("exec command is required for exec action")
+			return errors.New("exec command is required for exec action")
 		}
 		if !options.SkipConfirm {
-			options.Streams.ErrOut.Write([]byte("The following pods will have the command executed:\n"))
+			_, err = options.Streams.ErrOut.Write([]byte("The following pods will have the command executed:\n"))
+			if err != nil {
+				return fmt.Errorf("failed to write to error output: %w", err)
+			}
 			for _, pod := range matchedPods {
-				options.Streams.ErrOut.Write([]byte(fmt.Sprintf("- %s in namespace %s\n", pod.Name, pod.Namespace)))
+				_, err = fmt.Fprintf(options.Streams.ErrOut, "- %s in namespace %s\n", pod.Name, pod.Namespace)
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
 			}
 			if !prompts.AskForConfirmation(options.Streams) {
-				options.Streams.ErrOut.Write([]byte("Execution cancelled.\n"))
+				_, err = options.Streams.ErrOut.Write([]byte("Execution cancelled.\n"))
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
 				return nil
 			}
 		}
@@ -165,11 +201,11 @@ func (p *PodHandler) HandleAction(ctx context.Context, options ActionOptions) er
 					TTY:     false,
 				}, scheme.ParameterCodec)
 
-			exec, err := p.executorGetter(
+			var exec remotecommand.Executor
+			exec, err = p.executorGetter(
 				"POST",
 				rest.URL(),
 			)
-
 			if err != nil {
 				return fmt.Errorf("failed to create executor for pod %s: %w", pod.Name, err)
 			}
@@ -183,16 +219,15 @@ func (p *PodHandler) HandleAction(ctx context.Context, options ActionOptions) er
 			if err != nil {
 				return fmt.Errorf("failed to execute command on pod %s: %w", pod.Name, err)
 			}
-
 		}
-	} else {
+	default:
 		panic("unimplemented action")
 	}
 	return nil
 }
 
-func (p *PodHandler) getMatcher(opts ActionOptions) (func(pod *v1.Pod) bool, error) {
-	var regex = opts.NameRegex
+func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
+	regex := opts.NameRegex
 
 	return func(pod *v1.Pod) bool {
 		if regex != nil && !regex.MatchString(pod.Name) {
@@ -214,35 +249,10 @@ func (p *PodHandler) getMatcher(opts ActionOptions) (func(pod *v1.Pod) bool, err
 			}
 		}
 		return true
-	}, nil
-}
-
-// GetPropertyHeadersToDisplay implements ResourceHandler.
-func (p *PodHandler) GetPropertyHeadersToDisplay() (headers []string) {
-	return []string{"Name", "Status", "Age"}
-}
-
-// GetPropertyValuesToDisplay implements ResourceHandler.
-func (p *PodHandler) GetPropertyValuesToDisplay() (values []string) {
-	panic("unimplemented")
-}
-
-// IsDeletable implements ResourceHandler.
-func (p *PodHandler) IsDeletable() bool {
-	return true
+	}
 }
 
 // IsExecutable implements ResourceHandler.
 func (p *PodHandler) IsExecutable() bool {
-	return true
-}
-
-// IsGlobal implements ResourceHandler.
-func (p *PodHandler) IsGlobal() bool {
-	return false
-}
-
-// IsPatchable implements ResourceHandler.
-func (p *PodHandler) IsPatchable() bool {
 	return true
 }

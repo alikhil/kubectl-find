@@ -26,7 +26,7 @@ type Column struct {
 	Value  func(unstructured.Unstructured) string
 }
 
-// NewTablePrinter creates a printer suitable for calling PrintObjects()
+// NewTablePrinter creates a printer suitable for calling PrintObjects().
 func NewTablePrinter(options TablePrinterOptions) BatchPrinter {
 	printer := &TablePrinter{
 		options: options,

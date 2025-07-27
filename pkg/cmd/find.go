@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -42,6 +43,7 @@ import (
 )
 
 var (
+	//nolint:gochecknoglobals
 	findExample = `
 	# find pods with names matching prefix
 	%[1]s find --name mypod-*
@@ -56,10 +58,13 @@ var (
 	%[1]s find pods --status failed -delete -A
 `
 
-	errNoContext = fmt.Errorf("no context is currently set, use %q to select a new one", "kubectl config use-context <context>")
+	errNoContext = fmt.Errorf(
+		"no context is currently set, use %q to select a new one",
+		"kubectl config use-context <context>",
+	)
 )
 
-// FindOptions provides information required to handle the `find` command
+// FindOptions provides information required to handle the `find` command.
 type FindOptions struct {
 	configFlags *genericclioptions.ConfigFlags
 
@@ -89,7 +94,7 @@ type FindOptions struct {
 	genericiooptions.IOStreams
 }
 
-// NewFindOptions provides an instance of FindOptions with default values
+// NewFindOptions provides an instance of FindOptions with default values.
 func NewFindOptions(streams genericiooptions.IOStreams) *FindOptions {
 	return &FindOptions{
 		configFlags: genericclioptions.NewConfigFlags(true),
@@ -99,7 +104,7 @@ func NewFindOptions(streams genericiooptions.IOStreams) *FindOptions {
 	}
 }
 
-// NewCmdFind provides a cobra command wrapping FindOptions
+// NewCmdFind provides a cobra command wrapping FindOptions.
 func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 	o := NewFindOptions(streams)
 
@@ -127,22 +132,28 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&o.regex, "name", "r", "", "Regular expression to match resource names against; if not specified, all resources of the specified type will be returned.")
-	cmd.Flags().StringVar(&o.podStatus, "status", "", "Filter pods by their status (phase); e.g. 'Running', 'Pending', 'Succeeded', 'Failed', 'Unknown'.")
-	cmd.Flags().BoolVarP(&o.allNamespaces, "all-namespaces", "A", false, "Search in all namespaces; if not specified, only the current namespace will be searched.")
+	cmd.Flags().
+		StringVarP(&o.regex, "name", "r", "", "Regular expression to match resource names against; if not specified, all resources of the specified type will be returned.")
+	cmd.Flags().
+		StringVar(&o.podStatus, "status", "", "Filter pods by their status (phase); e.g. 'Running', 'Pending', 'Succeeded', 'Failed', 'Unknown'.")
+	cmd.Flags().
+		BoolVarP(&o.allNamespaces, "all-namespaces", "A", false, "Search in all namespaces; if not specified, only the current namespace will be searched.")
 	cmd.Flags().StringVarP(&o.labelSelector, "selector", "l", "", "Label selector to filter resources by labels.")
 	cmd.Flags().BoolVar(&o.delete, "delete", false, "Delete all matched resources.")
 	cmd.Flags().StringVarP(&o.exec, "exec", "e", "", "Execute a command on all found pods.")
 	cmd.Flags().StringVarP(&o.patch, "patch", "p", "", "Patch all found resources with the specified JSON patch.")
-	cmd.Flags().StringVar(&o.minAge, "min-age", "", "Filter resources by minimum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.")
-	cmd.Flags().StringVar(&o.maxAge, "max-age", "", "Filter resources by maximum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.")
-	cmd.Flags().BoolVarP(&o.skipConfirm, "force", "f", false, "Skip confirmation prompt before performing actions on resources.")
+	cmd.Flags().
+		StringVar(&o.minAge, "min-age", "", "Filter resources by minimum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.")
+	cmd.Flags().
+		StringVar(&o.maxAge, "max-age", "", "Filter resources by maximum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.")
+	cmd.Flags().
+		BoolVarP(&o.skipConfirm, "force", "f", false, "Skip confirmation prompt before performing actions on resources.")
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd
 }
 
-// Complete sets all information required for updating the current context
+// Complete sets all information required for updating the current context.
 func (o *FindOptions) Complete(cmd *cobra.Command, args []string) error {
 	o.args = args
 
@@ -173,7 +184,7 @@ func (o *FindOptions) Complete(cmd *cobra.Command, args []string) error {
 	}
 
 	if o.userSpecifiedNamespace != "" && o.allNamespaces {
-		return fmt.Errorf("cannot specify both --namespace and --all-namespaces flags")
+		return errors.New("cannot specify both --namespace and --all-namespaces flags")
 	}
 
 	// if no namespace argument or flag value was specified, then use the current context's namespace
@@ -233,7 +244,7 @@ func (o *FindOptions) findResource(resource string) (types.Resource, error) {
 	return empty, fmt.Errorf("resource %q not found in group version %q", resource, groupVersion)
 }
 
-// Validate ensures that all required arguments and flag values are provided
+// Validate ensures that all required arguments and flag values are provided.
 func (o *FindOptions) Validate() error {
 	if len(o.rawConfig.CurrentContext) == 0 {
 		return errNoContext
@@ -269,7 +280,6 @@ func (o *FindOptions) Validate() error {
 				)
 			}),
 	)
-
 	if err != nil {
 		return fmt.Errorf("unable to create resource handler for type %s: %w", o.resourceType.SingularName, err)
 	}
@@ -284,13 +294,13 @@ func (o *FindOptions) Validate() error {
 	}
 	if o.patch != "" {
 		if o.delete {
-			return fmt.Errorf("cannot specify both --delete and --patch flags")
+			return errors.New("cannot specify both --delete and --patch flags")
 		}
 		action = types.ActionPatch
 	}
 	if o.exec != "" {
 		if o.delete || o.patch != "" {
-			return fmt.Errorf("cannot specify both --delete or --patch and --exec flags")
+			return errors.New("cannot specify both --delete or --patch and --exec flags")
 		}
 		if o.resourceType.GroupVersionResource != types.PodType {
 			return fmt.Errorf("exec action is only supported for pods, but got %q", o.resourceType.PluralName)
@@ -359,9 +369,7 @@ func (t Title) Format() string {
 // Run finds all resources of a specified type matching the provided criteria
 // and optionally performs an action on them.
 func (o *FindOptions) Run() error {
-
 	ctx := context.Background()
 
 	return o.handler.HandleAction(ctx, o.options)
-
 }

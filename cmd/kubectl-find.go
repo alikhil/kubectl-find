@@ -28,6 +28,8 @@ import (
 )
 
 // Using the defaults from goreleaser as per https://goreleaser.com/cookbooks/using-main.version/
+//
+//nolint:gochecknoglobals
 var (
 	version = "dev"
 	commit  = "none"
@@ -36,6 +38,7 @@ var (
 
 func main() {
 	flags := pflag.NewFlagSet("kubectl-find", pflag.ExitOnError)
+	//nolint:reassign // flags are shared
 	pflag.CommandLine = flags
 
 	root := cmd.NewCmdFind(genericiooptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
@@ -43,7 +46,8 @@ func main() {
 	root.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the version number of kubectl-find",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
+			//nolint:forbidigo // this is a CLI tool, so printing version info is acceptable
 			fmt.Printf("version: %s\ncommit: %s\ndate: %s\n", version, commit, date)
 			os.Exit(0)
 		},

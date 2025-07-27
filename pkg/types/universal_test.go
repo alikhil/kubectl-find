@@ -2,7 +2,6 @@ package types
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"regexp"
 	"testing"
@@ -128,7 +127,7 @@ func TestUniversalHandler(t *testing.T) {
 			shared: shared{
 				resources: []runtime.Object{},
 			},
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(t *testing.T, f *fields, _ *shared) error {
 				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
 				m.EXPECT().PrintObjects(gomock.Any(), gomock.Any()).Return(nil).Times(0)
 
@@ -138,7 +137,7 @@ func TestUniversalHandler(t *testing.T) {
 		},
 		{
 			name: "List in empty namespace",
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(t *testing.T, f *fields, _ *shared) error {
 				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
 				m.EXPECT().PrintObjects(gomock.Any(), gomock.Any()).Return(nil).Times(0)
 				f.printer = m
@@ -218,7 +217,7 @@ func TestUniversalHandler(t *testing.T) {
 				options: ActionOptions{
 					Namespace:    "default",
 					Action:       ActionList,
-					NameRegex:    regexp.MustCompile("test\\-cm\\-1"),
+					NameRegex:    regexp.MustCompile(`test\-cm\-1`),
 					ResourceType: getResource("configmap"),
 				},
 			},
@@ -335,7 +334,7 @@ func TestUniversalHandler(t *testing.T) {
 		},
 		{
 			name: "Delete resource with confirmation",
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
 				s.in.Write([]byte("y\n"))
 				return nil
 			},
@@ -361,11 +360,11 @@ func TestUniversalHandler(t *testing.T) {
 				},
 			},
 			want: want{
-				check: func(t *testing.T, f *fields, s *shared) {
+				check: func(t *testing.T, _ *fields, s *shared) {
 					outBytes, err := io.ReadAll(s.out)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					errOutBytes, err := io.ReadAll(s.errOut)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 
 					outStr := string(outBytes)
 					errOutStr := string(errOutBytes)
@@ -378,7 +377,7 @@ func TestUniversalHandler(t *testing.T) {
 		},
 		{
 			name: "Delete resource cancelled",
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
 				s.in.Write([]byte("n\n"))
 				return nil
 			},
@@ -404,9 +403,9 @@ func TestUniversalHandler(t *testing.T) {
 				},
 			},
 			want: want{
-				check: func(t *testing.T, f *fields, s *shared) {
+				check: func(t *testing.T, _ *fields, s *shared) {
 					errOutBytes, err := io.ReadAll(s.errOut)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					errOutStr := string(errOutBytes)
 					assert.Contains(t, errOutStr, "Deletion cancelled.")
 				},
@@ -414,7 +413,7 @@ func TestUniversalHandler(t *testing.T) {
 		},
 		{
 			name: "Patch resource with confirmation",
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
 				s.in.Write([]byte("y\n"))
 				return nil
 			},
@@ -441,11 +440,11 @@ func TestUniversalHandler(t *testing.T) {
 				},
 			},
 			want: want{
-				check: func(t *testing.T, f *fields, s *shared) {
+				check: func(t *testing.T, _ *fields, s *shared) {
 					outBytes, err := io.ReadAll(s.out)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					errOutBytes, err := io.ReadAll(s.errOut)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 
 					outStr := string(outBytes)
 					errOutStr := string(errOutBytes)
@@ -458,7 +457,7 @@ func TestUniversalHandler(t *testing.T) {
 		},
 		{
 			name: "Patch resource cancelled",
-			prepare: func(t *testing.T, f *fields, s *shared) error {
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
 				s.in.Write([]byte("n\n"))
 				return nil
 			},
@@ -485,9 +484,9 @@ func TestUniversalHandler(t *testing.T) {
 				},
 			},
 			want: want{
-				check: func(t *testing.T, f *fields, s *shared) {
+				check: func(t *testing.T, _ *fields, s *shared) {
 					errOutBytes, err := io.ReadAll(s.errOut)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					errOutStr := string(errOutBytes)
 					assert.Contains(t, errOutStr, "Patch cancelled.")
 				},
@@ -543,11 +542,11 @@ func TestUniversalHandler(t *testing.T) {
 					if cm.CreationTimestamp.IsZero() {
 						cm.CreationTimestamp = metav1.NewTime(time.Now())
 					}
-				} else if secret, ok := resource.(*v1.Secret); ok {
+				} else if secret, ok2 := resource.(*v1.Secret); ok2 {
 					if secret.CreationTimestamp.IsZero() {
 						secret.CreationTimestamp = metav1.NewTime(time.Now())
 					}
-				} else if ns, ok := resource.(*v1.Namespace); ok {
+				} else if ns, ok3 := resource.(*v1.Namespace); ok3 {
 					if ns.CreationTimestamp.IsZero() {
 						ns.CreationTimestamp = metav1.NewTime(time.Now())
 					}
@@ -577,7 +576,7 @@ func TestUniversalHandler(t *testing.T) {
 			args.options.Streams = &shared.streams
 			// since strategic merge patch does not work with unstructured objects in fake client, we use merge patch
 			args.options.PatchStrategy = k8s_types.MergePatchType
-			err := handler.HandleAction(context.Background(), args.options)
+			err := handler.HandleAction(t.Context(), args.options)
 			if want.err != nil {
 				require.Error(t, err)
 				require.EqualError(t, err, want.err.Error())
@@ -592,7 +591,6 @@ func TestUniversalHandler(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, test(tt.prepare, tt.args, tt.shared, tt.want))
 	}
 }

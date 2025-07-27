@@ -22,6 +22,7 @@ type Resource struct {
 	IsNamespaced bool
 }
 
+//nolint:gochecknoglobals
 var PodType = schema.GroupVersionResource{
 	Resource: "pods",
 	Group:    "",

@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -33,7 +34,11 @@ func (h *UniversalHandler) IsExecutable() bool {
 	return false
 }
 
-func (h *UniversalHandler) printResource(resource unstructured.Unstructured, opts ActionOptions, outStream io.Writer) error {
+func (h *UniversalHandler) printResource(
+	resource unstructured.Unstructured,
+	opts ActionOptions,
+	outStream io.Writer,
+) error {
 	showNamespace := h.opts.Resource.IsNamespaced && opts.Namespace == ""
 	var msg string
 	if showNamespace {
@@ -43,13 +48,12 @@ func (h *UniversalHandler) printResource(resource unstructured.Unstructured, opt
 	}
 	_, err := outStream.Write([]byte(msg + "\n"))
 	if err != nil {
-		return fmt.Errorf("failed to write resource message: %v", err)
+		return fmt.Errorf("failed to write resource message: %w", err)
 	}
 	return nil
 }
 
 func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptions) error {
-
 	// todo: move to another place
 	if options.PatchStrategy == "" {
 		options.PatchStrategy = k8s_types.StrategicMergePatchType
@@ -64,9 +68,8 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 	list, err := resources.List(ctx, v1.ListOptions{
 		LabelSelector: options.LabelSelector,
 	})
-
 	if err != nil {
-		return fmt.Errorf("failed to list %s: %v", h.opts.Resource.PluralName, err)
+		return fmt.Errorf("failed to list %s: %w", h.opts.Resource.PluralName, err)
 	}
 
 	matchedItems := make([]unstructured.Unstructured, 0, len(list.Items))
@@ -85,46 +88,58 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 
 	if options.Action == ActionDelete {
 		if !options.SkipConfirm {
-			options.Streams.ErrOut.Write([]byte(fmt.Sprintf("The following %s will be deleted:\n", h.opts.Resource.PluralName)))
+			fmt.Fprintf(options.Streams.ErrOut, "The following %s will be deleted:\n", h.opts.Resource.PluralName)
 			for _, res := range matchedItems {
-				h.printResource(res, options, options.Streams.ErrOut)
+				err = h.printResource(res, options, options.Streams.ErrOut)
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
 			}
 			if !prompts.AskForConfirmation(options.Streams) {
-				options.Streams.ErrOut.Write([]byte("Deletion cancelled.\n"))
+				_, err = options.Streams.ErrOut.Write([]byte("Deletion cancelled.\n"))
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
 				return nil
 			}
 		}
 		for _, item := range matchedItems {
 			deletionPropagation := v1.DeletePropagationBackground
 
-			if err := resources.Delete(ctx, item.GetName(), v1.DeleteOptions{PropagationPolicy: &deletionPropagation}); err != nil {
-				return fmt.Errorf("failed to delete %s %s: %v", h.opts.Resource.SingularName, item.GetName(), err)
+			if err = resources.Delete(ctx, item.GetName(), v1.DeleteOptions{PropagationPolicy: &deletionPropagation}); err != nil {
+				return fmt.Errorf("failed to delete %s %s: %w", h.opts.Resource.SingularName, item.GetName(), err)
 			}
-			options.Streams.Out.Write([]byte(fmt.Sprintf("Deleted %s %s\n", h.opts.Resource.SingularName, item.GetName())))
+			fmt.Fprintf(options.Streams.Out, "Deleted %s %s\n", h.opts.Resource.SingularName, item.GetName())
 		}
 		return nil
 	}
 	if options.Action == ActionPatch {
 		if options.Patch == "" {
-			return fmt.Errorf("patch content is required for patch action")
+			return errors.New("patch content is required for patch action")
 		}
 		if !options.SkipConfirm {
-			options.Streams.ErrOut.Write([]byte(fmt.Sprintf("The following %s will be patched:\n", h.opts.Resource.PluralName)))
+			fmt.Fprintf(options.Streams.ErrOut, "The following %s will be patched:\n", h.opts.Resource.PluralName)
 			for _, res := range matchedItems {
-				h.printResource(res, options, options.Streams.ErrOut)
+				err = h.printResource(res, options, options.Streams.ErrOut)
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
 			}
 			if !prompts.AskForConfirmation(options.Streams) {
-				options.Streams.ErrOut.Write([]byte("Patch cancelled.\n"))
+				_, err = options.Streams.ErrOut.Write([]byte("Patch cancelled.\n"))
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
 				return nil
 			}
 		}
 		for _, item := range matchedItems {
 			patchBytes := []byte(options.Patch)
-			_, err := resources.Patch(ctx, item.GetName(), options.PatchStrategy, patchBytes, v1.PatchOptions{})
+			_, err = resources.Patch(ctx, item.GetName(), options.PatchStrategy, patchBytes, v1.PatchOptions{})
 			if err != nil {
-				return fmt.Errorf("failed to patch %s %s: %v", h.opts.Resource.SingularName, item.GetName(), err)
+				return fmt.Errorf("failed to patch %s %s: %w", h.opts.Resource.SingularName, item.GetName(), err)
 			}
-			options.Streams.Out.Write([]byte(fmt.Sprintf("Patched %s %s\n", h.opts.Resource.SingularName, item.GetName())))
+			fmt.Fprintf(options.Streams.Out, "Patched %s %s\n", h.opts.Resource.SingularName, item.GetName())
 		}
 		return nil
 	}
