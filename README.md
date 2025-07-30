@@ -1,5 +1,9 @@
 # kubectl-find
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/alikhil/kubectl-find)
+[![Go Report Card](https://goreportcard.com/badge/github.com/alikhil/kubectl-find)](https://goreportcard.com/report/github.com/alikhil/kubectl-find)
+![GitHub License](https://img.shields.io/github/license/alikhil/kubectl-find)
+
 It's a plugin for `kubectl` that gives you a **UNIX find**-like experience.
 
 Find then **print, patch or delete** any resource matching the provided criteria based on *name, age, labels, etc*
@@ -17,6 +21,7 @@ Flags:
   -l, --selector string                Label selector to filter resources by labels.
       --max-age string                 Filter resources by maximum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.
       --min-age string                 Filter resources by minimum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.
+      --node string                    Filter pods by node name regex; Uses pod.Spec.NodeName or pod.Status.NominatedNodeName if the former is empty.
   -h, --help                           help for kubectl find
   -p, --patch string                   Patch all found resources with the specified JSON patch.
   -e, --exec string                    Execute a command on all found pods.
@@ -69,3 +74,7 @@ kubectl find pods -l app=nginx --exec 'nginx -s reload'
 ```shell
 kubectl find pods --status failed -A --delete
 ```
+
+## Completion
+
+Copy [kubectl_complete-find](https://github.com/alikhil/kubectl-find/blob/main/kubectl_complete-find) script somewhere under `PATH`.

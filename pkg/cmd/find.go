@@ -83,6 +83,7 @@ type FindOptions struct {
 	minAge        string
 	maxAge        string
 	labelSelector string
+	nodeNameRegex string
 	skipConfirm   bool
 
 	args []string
@@ -148,6 +149,9 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 		StringVar(&o.maxAge, "max-age", "", "Filter resources by maximum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.")
 	cmd.Flags().
 		BoolVarP(&o.skipConfirm, "force", "f", false, "Skip confirmation prompt before performing actions on resources.")
+	cmd.Flags().
+		StringVar(&o.nodeNameRegex, "node", "", "Filter pods by node name regex; Uses pod.Spec.NodeName or pod.Status.NominatedNodeName if the former is empty.")
+
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd
@@ -342,6 +346,16 @@ func (o *FindOptions) Validate() error {
 		}
 	}
 
+	var nodeNameRegex *regexp.Regexp
+	if o.nodeNameRegex != "" {
+		if o.resourceType.GroupVersionResource != types.PodType {
+			return fmt.Errorf("node filtering is only supported for pods, but got %q", o.resourceType)
+		}
+		if nodeNameRegex, err = regexp.Compile(o.nodeNameRegex); err != nil {
+			return fmt.Errorf("invalid node name regex filter %q: %w", o.nodeNameRegex, err)
+		}
+	}
+
 	o.options = types.ActionOptions{
 		Namespace:     o.userSpecifiedNamespace,
 		Action:        action,
@@ -350,6 +364,7 @@ func (o *FindOptions) Validate() error {
 		MinAge:        minAge,
 		LabelSelector: o.labelSelector, // todo: add validation for label selector
 		Streams:       &o.IOStreams,
+		NodeNameRegex: nodeNameRegex,
 		SkipConfirm:   o.skipConfirm,
 		PodStatus:     types.ToPodPhase(o.podStatus),
 		Exec:          o.exec,

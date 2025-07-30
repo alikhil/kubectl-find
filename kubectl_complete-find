@@ -16,7 +16,7 @@ else
    # But the below, although imperfect, is a nice example for plugins that don't use Cobra.
 
    # We are probably completing an argument.  This plugin only accepts namespaces, let's fetch them.
-   kubectl api-resources --verbs=list -o name
+   kubectl api-resources --verbs=list --api-group='' -o name
 
    # Turn off file completion.  See the ShellCompDirective documentation within
    # https://github.com/spf13/cobra/blob/main/shell_completions.md#completion-of-nouns

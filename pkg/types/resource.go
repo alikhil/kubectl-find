@@ -132,6 +132,7 @@ type ActionOptions struct {
 	Patch         string
 	PatchStrategy k8s_types.PatchType // type of patch to apply, e.g. "json", "merge", etc.
 	Exec          string              // command to execute on pods
+	NodeNameRegex *regexp.Regexp      // filter pods by node name, only applicable for pod resources
 
 	Streams *genericclioptions.IOStreams
 }

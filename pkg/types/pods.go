@@ -248,6 +248,18 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 				return false
 			}
 		}
+		if opts.NodeNameRegex != nil {
+			nodeName := pod.Spec.NodeName
+			if nodeName == "" {
+				nodeName = pod.Status.NominatedNodeName
+			}
+			if nodeName == "" {
+				return false
+			}
+			if !opts.NodeNameRegex.MatchString(nodeName) {
+				return false
+			}
+		}
 		return true
 	}
 }
