@@ -6,7 +6,15 @@
 
 It's a plugin for `kubectl` that gives you a **UNIX find**-like experience.
 
-Find then **print, patch or delete** any resource matching the provided criteria based on *name, age, labels, etc*
+Find resource based on
+
+- **name regex**
+- **node name**
+- **age**
+- **labels**
+- **status**
+
+and then **print, patch or delete** any.
 
 ## Usage
 
