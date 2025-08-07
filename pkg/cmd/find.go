@@ -206,6 +206,19 @@ func (o *FindOptions) Complete(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func cleanResourceName(resource string) string {
+	if strings.Contains(resource, ".") {
+		// If the resource contains a dot, it is likely a namespaced resource like "pods.v1"
+		// We only want the resource name part, so we split by dot and take the first part.
+		return strings.Split(resource, ".")[0]
+	}
+
+	if strings.Contains(resource, "/") {
+		return strings.Split(resource, "/")[0]
+	}
+	return resource
+}
+
 func (o *FindOptions) findResource(resource string) (types.Resource, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(o.rest)
 	empty := types.Resource{}
@@ -220,7 +233,8 @@ func (o *FindOptions) findResource(resource string) (types.Resource, error) {
 		nil, // no warning handler
 	)
 
-	// Example: resolve resource from user input
+	resource = cleanResourceName(resource)
+
 	gvr := schema.GroupVersionResource{Resource: resource}
 
 	resolved, err := restMapper.ResourceFor(gvr)
