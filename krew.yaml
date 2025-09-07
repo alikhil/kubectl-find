@@ -3,7 +3,7 @@ kind: Plugin
 metadata:
   name: find
 spec:
-  version: v0.2.1
+  version: v0.3.0
   homepage: https://github.com/alikhil/kubectl-find
   shortDescription: Find resources and perform action on them.
   description: |
@@ -14,41 +14,41 @@ spec:
       matchLabels:
         os: linux
         arch: amd64
-    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.2.1/kubectl-find_Linux_x86_64.tar.gz
-    sha256: 38aecd425a8483514cfa4894f4b313b2bdbe488d8ad7228fa63b1ebb998f0ed3
+    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.3.0/kubectl-find_Linux_x86_64.tar.gz
+    sha256: 57f0e3305bdfce511dbfbf495ba503ac5998d5b69886364a5e719e315e6baabb
     bin: kubectl-find
   - selector:
       matchLabels:
         os: linux
         arch: arm64
-    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.2.1/kubectl-find_Linux_arm64.tar.gz
-    sha256: 35aacc29905873650d6612c963767b3450f7fdf6b718f1c629ff6da45160fcb8
+    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.3.0/kubectl-find_Linux_arm64.tar.gz
+    sha256: e8e6c143b7bb812bd837a73590387ee50a914275614bbaed30fc310acbe69dc8
     bin: kubectl-find
   - selector:
       matchLabels:
         os: darwin
         arch: amd64
-    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.2.1/kubectl-find_Darwin_x86_64.tar.gz
-    sha256: 34ea6f548f8f323f53d92054f3bbc3dddc15df741ef1ef2013dce3fea9719990
+    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.3.0/kubectl-find_Darwin_x86_64.tar.gz
+    sha256: c0e264cc29684e4be0c66ecba81e0348e99440eb22094677a161c494f3eead77
     bin: kubectl-find
   - selector:
       matchLabels:
         os: darwin
         arch: arm64
-    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.2.1/kubectl-find_Darwin_arm64.tar.gz
-    sha256: 464b81e3acfbd9acea5ff1e4ecd2b9f958f505b5bedf782b122b9a137a18824d
+    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.3.0/kubectl-find_Darwin_arm64.tar.gz
+    sha256: 177fb17fe500fc627de8de7aa9e0d8d057fdfbe689a52685fd5e609a4caa907d
     bin: kubectl-find
   - selector:
       matchLabels:
         os: windows
         arch: amd64
-    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.2.1/kubectl-find_Windows_x86_64.zip
-    sha256: 92f03858fdf7b88b5c21a2fff6bb75977159226d8ae97956e5e881e0f9cc0b07
+    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.3.0/kubectl-find_Windows_x86_64.zip
+    sha256: 1e6e4b28e8ae5285ff37fa62d1a3f710d591009d95a681994de78db50a28bccf
     bin: kubectl-find.exe
   - selector:
       matchLabels:
         os: windows
         arch: arm64
-    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.2.1/kubectl-find_Windows_arm64.zip
-    sha256: fb75a66e8085e2d6876713e3702e61ef68be9e9d286bf6a444f37151bb53f25a
+    uri: https://github.com/alikhil/kubectl-find/releases/download/v0.3.0/kubectl-find_Windows_arm64.zip
+    sha256: 3eb13a4b0c18ef0c446600180bd272e0cb36c0a42c8945ce389331c4d35200a9
     bin: kubectl-find.exe
