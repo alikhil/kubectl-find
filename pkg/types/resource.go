@@ -57,6 +57,8 @@ func (a Action) String() string {
 	}
 }
 
+const UnknownStr = "<unknown>"
+
 type HandlerOptions struct {
 	clientSet      kubernetes.Interface
 	executorGetter ExecutorGetter
@@ -110,7 +112,7 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 					if status, found, _ := unstructured.NestedString(obj.Object, "status", "phase"); found {
 						return status
 					}
-					return "<unknown>"
+					return UnknownStr
 				},
 			},
 		}
@@ -120,7 +122,7 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 				Value: func(obj unstructured.Unstructured) string {
 					pod := &v1.Pod{}
 					if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, pod); err != nil {
-						return "<unknown>"
+						return UnknownStr
 					}
 					totalRestarts := 0
 					lastRestart := time.Time{}
@@ -145,7 +147,7 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 				Value: func(obj unstructured.Unstructured) string {
 					pod := &v1.Pod{}
 					if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, pod); err != nil {
-						return "<unknown>"
+						return UnknownStr
 					}
 					var images []string
 					for _, container := range pod.Spec.Containers {
