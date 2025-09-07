@@ -1,3 +1,10 @@
+## v0.3.0 (2025-09-07)
+
+### Feat
+
+- add image name regex filter for pods
+- add pod filter on restarts count
+
 ## v0.2.1 (2025-08-07)
 
 ### Fix
