@@ -593,6 +593,67 @@ func TestPodsHandler(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "List pods that have been restarted",
+			prepare: func(t *testing.T, f *fields, s *shared) error {
+				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
+				m.EXPECT().
+					PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[0])), gomock.Any()).
+					Return(nil).
+					Times(1)
+				f.printer = m
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Namespace: "default",
+					Action:    ActionList,
+					Restarted: true,
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-pod",
+							Namespace: "default",
+						},
+						Status: v1.PodStatus{
+							Phase: v1.PodRunning,
+							ContainerStatuses: []v1.ContainerStatus{
+								{
+									Name:         "test-container",
+									Ready:        true,
+									RestartCount: 1,
+								},
+							},
+						},
+					},
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-pod-2",
+							Namespace: "default",
+						},
+						Status: v1.PodStatus{
+							Phase:             v1.PodPending,
+							NominatedNodeName: "node-1",
+						},
+					},
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-pod-3",
+							Namespace: "default",
+						},
+						Status: v1.PodStatus{
+							Phase: v1.PodRunning,
+						},
+						Spec: v1.PodSpec{
+							NodeName: "other-2",
+						},
+					},
+				},
+			},
+		},
 	}
 
 	test := func(prepare func(*testing.T, *fields, *shared) error, args args, shared shared, want want) func(t *testing.T) {

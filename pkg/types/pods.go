@@ -260,6 +260,14 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 				return false
 			}
 		}
+		if opts.Restarted {
+			for _, cs := range pod.Status.ContainerStatuses {
+				if cs.RestartCount > 0 {
+					return true
+				}
+			}
+			return false
+		}
 		return true
 	}
 }

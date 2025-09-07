@@ -85,6 +85,7 @@ type FindOptions struct {
 	labelSelector string
 	nodeNameRegex string
 	skipConfirm   bool
+	restarted     bool
 
 	args []string
 
@@ -151,6 +152,8 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 		BoolVarP(&o.skipConfirm, "force", "f", false, "Skip confirmation prompt before performing actions on resources.")
 	cmd.Flags().
 		StringVar(&o.nodeNameRegex, "node", "", "Filter pods by node name regex; Uses pod.Spec.NodeName or pod.Status.NominatedNodeName if the former is empty.")
+	cmd.Flags().
+		BoolVar(&o.restarted, "restarted", false, "Find pods that have been restarted at least once.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
@@ -289,6 +292,7 @@ func (o *FindOptions) Validate() error {
 		types.NewHandlerOptions().
 			WithClientSet(clientSet).
 			WithNamespaced(o.allNamespaces).
+			WithRestarted(o.restarted).
 			WithDynamic(dynamic).
 			WithExecutorGetter(func(method string, url *url.URL) (remotecommand.Executor, error) {
 				return remotecommand.NewSPDYExecutor(
@@ -384,6 +388,7 @@ func (o *FindOptions) Validate() error {
 		Exec:          o.exec,
 		Patch:         o.patch,
 		ResourceType:  o.resourceType,
+		Restarted:     o.restarted,
 	}
 
 	return nil
