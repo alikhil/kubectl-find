@@ -268,6 +268,14 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 			}
 			return false
 		}
+		if opts.ImageRegex != nil {
+			for _, container := range pod.Spec.Containers {
+				if opts.ImageRegex.MatchString(container.Image) {
+					return true
+				}
+			}
+			return false
+		}
 		return true
 	}
 }

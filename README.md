@@ -9,11 +9,12 @@ It's a plugin for `kubectl` that gives you a **UNIX find**-like experience.
 Find resource based on
 
 - **name regex**
-- **node name** (for pods only)
-- **restarts** (for pods only)
 - **age**
 - **labels**
 - **status**
+- **node name** (for pods only)
+- **restarts** (for pods only)
+- **image name** (for pods only)
 
 and then **print, patch or delete** any.
 
@@ -27,6 +28,7 @@ Flags:
   -n, --namespace string               If present, the namespace scope for this CLI request
   -A, --all-namespaces                 Search in all namespaces; if not specified, only the current namespace will be searched.
       --status string                  Filter pods by their status (phase); e.g. 'Running', 'Pending', 'Succeeded', 'Failed', 'Unknown'.
+      --image string                   Regular expression to match container images against.
       --restarted                      Find pods that have been restarted at least once.
   -l, --selector string                Label selector to filter resources by labels.
       --max-age string                 Filter resources by maximum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.

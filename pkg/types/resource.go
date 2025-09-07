@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/alikhil/kubectl-find/pkg/printers"
@@ -62,6 +63,7 @@ type HandlerOptions struct {
 	dynamic        dynamic.Interface
 	allNamespaces  bool
 	restarted      bool
+	withImages     bool
 }
 
 func NewHandlerOptions() HandlerOptions {
@@ -85,6 +87,11 @@ func (o HandlerOptions) WithNamespaced(allNamespaces bool) HandlerOptions {
 
 func (o HandlerOptions) WithRestarted(restarted bool) HandlerOptions {
 	o.restarted = restarted
+	return o
+}
+
+func (o HandlerOptions) WithImages(withImages bool) HandlerOptions {
+	o.withImages = withImages
 	return o
 }
 
@@ -132,6 +139,22 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 				},
 			})
 		}
+		if opts.withImages {
+			columns = append(columns, printers.Column{
+				Header: "IMAGES",
+				Value: func(obj unstructured.Unstructured) string {
+					pod := &v1.Pod{}
+					if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, pod); err != nil {
+						return "<unknown>"
+					}
+					var images []string
+					for _, container := range pod.Spec.Containers {
+						images = append(images, container.Image)
+					}
+					return strings.Join(images, ", ")
+				},
+			})
+		}
 		return &PodHandler{
 			clientSet: opts.clientSet,
 			printer: printers.NewTablePrinter(printers.TablePrinterOptions{
@@ -169,6 +192,7 @@ type ActionOptions struct {
 	Exec          string              // command to execute on pods
 	NodeNameRegex *regexp.Regexp      // filter pods by node name, only applicable for pod resources
 	Restarted     bool                // only for pods, find pods that have been restarted at least once
+	ImageRegex    *regexp.Regexp      // filter pods by container image, only applicable for pod resources
 
 	Streams *genericclioptions.IOStreams
 }

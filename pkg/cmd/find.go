@@ -86,6 +86,7 @@ type FindOptions struct {
 	nodeNameRegex string
 	skipConfirm   bool
 	restarted     bool
+	imageRegex    string
 
 	args []string
 
@@ -154,6 +155,8 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 		StringVar(&o.nodeNameRegex, "node", "", "Filter pods by node name regex; Uses pod.Spec.NodeName or pod.Status.NominatedNodeName if the former is empty.")
 	cmd.Flags().
 		BoolVar(&o.restarted, "restarted", false, "Find pods that have been restarted at least once.")
+	cmd.Flags().
+		StringVar(&o.imageRegex, "image", "", "Regular expression to match container images against.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
@@ -294,6 +297,7 @@ func (o *FindOptions) Validate() error {
 			WithNamespaced(o.allNamespaces).
 			WithRestarted(o.restarted).
 			WithDynamic(dynamic).
+			WithImages(o.imageRegex != "").
 			WithExecutorGetter(func(method string, url *url.URL) (remotecommand.Executor, error) {
 				return remotecommand.NewSPDYExecutor(
 					o.rest,
@@ -374,6 +378,16 @@ func (o *FindOptions) Validate() error {
 		}
 	}
 
+	var imagesRegex *regexp.Regexp
+	if o.imageRegex != "" {
+		if o.resourceType.GroupVersionResource != types.PodType {
+			return fmt.Errorf("image filtering is only supported for pods, but got %q", o.resourceType)
+		}
+		if imagesRegex, err = regexp.Compile(o.imageRegex); err != nil {
+			return fmt.Errorf("invalid image regex filter %q: %w", o.imageRegex, err)
+		}
+	}
+
 	o.options = types.ActionOptions{
 		Namespace:     o.userSpecifiedNamespace,
 		Action:        action,
@@ -389,6 +403,7 @@ func (o *FindOptions) Validate() error {
 		Patch:         o.patch,
 		ResourceType:  o.resourceType,
 		Restarted:     o.restarted,
+		ImageRegex:    imagesRegex,
 	}
 
 	return nil
