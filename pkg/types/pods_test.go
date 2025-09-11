@@ -659,7 +659,7 @@ func TestPodsHandler(t *testing.T) {
 			prepare: func(t *testing.T, f *fields, s *shared) error {
 				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
 				m.EXPECT().
-					PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[0])), gomock.Any()).
+					PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[0:2]...)), gomock.Any()).
 					Return(nil).
 					Times(1)
 				f.printer = m
@@ -699,6 +699,14 @@ func TestPodsHandler(t *testing.T) {
 						Status: v1.PodStatus{
 							Phase:             v1.PodPending,
 							NominatedNodeName: "node-1",
+						},
+						Spec: v1.PodSpec{
+							InitContainers: []v1.Container{
+								{
+									Name:  "init-container",
+									Image: "bitnami/shell",
+								},
+							},
 						},
 					},
 					&v1.Pod{

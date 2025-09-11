@@ -269,7 +269,11 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 			return false
 		}
 		if opts.ImageRegex != nil {
-			for _, container := range pod.Spec.Containers {
+			allContainers := make([]v1.Container, 0, len(pod.Spec.Containers)+len(pod.Spec.InitContainers))
+			allContainers = append(allContainers, pod.Spec.Containers...)
+			allContainers = append(allContainers, pod.Spec.InitContainers...)
+
+			for _, container := range allContainers {
 				if opts.ImageRegex.MatchString(container.Image) {
 					return true
 				}
