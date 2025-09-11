@@ -1,3 +1,9 @@
+## v0.3.1 (2025-09-11)
+
+### Fix
+
+- --image flag to search in initContainers
+
 ## v0.3.0 (2025-09-07)
 
 ### Feat
