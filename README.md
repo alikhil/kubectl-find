@@ -46,7 +46,8 @@ Flags:
 ### Using [krew](https://krew.sigs.k8s.io/)
 
 ```shell
-krew install --manifest-url https://raw.githubusercontent.com/alikhil/kubectl-find/refs/heads/main/krew.yaml
+krew index add alikhil https://github.com/alikhil/kubectl-find.git
+krew install alikhil/find
 ```
 
 ### Download binary
