@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/itchyny/gojq"
 	"github.com/spf13/cobra"
 
 	"github.com/alikhil/kubectl-find/pkg/types"
@@ -87,6 +88,7 @@ type FindOptions struct {
 	skipConfirm   bool
 	restarted     bool
 	imageRegex    string
+	jqFilter      string
 
 	args []string
 
@@ -157,6 +159,8 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 		BoolVar(&o.restarted, "restarted", false, "Find pods that have been restarted at least once.")
 	cmd.Flags().
 		StringVar(&o.imageRegex, "image", "", "Regular expression to match container images against.")
+	cmd.Flags().
+		StringVarP(&o.jqFilter, "jq", "j", "", "jq expression to filter resources; Uses gojq library for evaluation.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
@@ -387,6 +391,17 @@ func (o *FindOptions) Validate() error {
 			return fmt.Errorf("invalid image regex filter %q: %w", o.imageRegex, err)
 		}
 	}
+	var jqQuery *gojq.Query
+	if o.jqFilter != "" {
+		jqFilter := fmt.Sprintf("[.] | .[] | select ( %s ) | length > 0", o.jqFilter)
+		jqQuery, err = gojq.Parse(jqFilter)
+		if err != nil {
+			return fmt.Errorf("invalid jq filter %q: %w", o.jqFilter, err)
+		}
+		if jqQuery == nil {
+			return fmt.Errorf("invalid jq filter %q", o.jqFilter)
+		}
+	}
 
 	o.options = types.ActionOptions{
 		Namespace:     o.userSpecifiedNamespace,
@@ -396,6 +411,7 @@ func (o *FindOptions) Validate() error {
 		MinAge:        minAge,
 		LabelSelector: o.labelSelector, // todo: add validation for label selector
 		Streams:       &o.IOStreams,
+		JQQuery:       jqQuery,
 		NodeNameRegex: nodeNameRegex,
 		SkipConfirm:   o.skipConfirm,
 		PodStatus:     types.ToPodPhase(o.podStatus),

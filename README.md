@@ -15,6 +15,7 @@ Find resource based on
 - **node name** (for pods only)
 - **restarts** (for pods only)
 - **image name** (for pods only)
+- **jq filter** - custom condition
 
 and then **print, patch or delete** any.
 
@@ -29,6 +30,7 @@ Flags:
   -A, --all-namespaces                 Search in all namespaces; if not specified, only the current namespace will be searched.
       --status string                  Filter pods by their status (phase); e.g. 'Running', 'Pending', 'Succeeded', 'Failed', 'Unknown'.
       --image string                   Regular expression to match container images against.
+  -j, --jq string                      jq expression to filter resources; Uses gojq library for evaluation.
       --restarted                      Find pods that have been restarted at least once.
   -l, --selector string                Label selector to filter resources by labels.
       --max-age string                 Filter resources by maximum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.
@@ -55,6 +57,23 @@ krew install alikhil/find
 Download [latest release](https://github.com/alikhil/kubectl-find/releases) for your platform/os and save it under `$PATH` as `kubectl-find`
 
 ## Examples
+
+### Filter by jq
+
+Based on [gojq](https://github.com/itchyny/gojq) implementation of `jq`.
+Check resource structure on [kubespec.dev](https://kubespec.dev/).
+
+#### Find pods with empty nodeSelector
+
+```shell
+kubectl find pods -j '.spec.nodeSelector == null' -A
+```
+
+#### Find pods with undefined resources
+
+```shell
+kubectl find pods -j 'any( .spec.containers[]; .resources == {} )' -A
+```
 
 ### Filter using regex
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/alikhil/kubectl-find/pkg/mocks"
 	"github.com/alikhil/kubectl-find/pkg/printers"
+	"github.com/itchyny/gojq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -526,6 +527,65 @@ func TestUniversalHandler(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "kube-system",
 						},
+					},
+				},
+			},
+		},
+		{
+			name: "List resources with jq filter",
+			prepare: func(t *testing.T, f *fields, s *shared) error {
+				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
+				m.EXPECT().PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[0:2]...)),
+					gomock.Any()).Return(nil).Times(1)
+				f.printer = m
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Namespace:    "default",
+					Action:       ActionList,
+					ResourceType: getResource("secret"),
+					JQQuery: func() *gojq.Query {
+						q, err := gojq.Parse("[.] | .[] | select(.type == \"kubernetes.io/service-account-token\")")
+						require.NoError(t, err)
+						return q
+					}(),
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.Secret{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "Secret",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "default-token-abcde",
+							Namespace: "default",
+						},
+						Type: "kubernetes.io/service-account-token",
+					},
+					&v1.Secret{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "Secret",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "my-service-account-token",
+							Namespace: "default",
+						},
+						Type: "kubernetes.io/service-account-token",
+					},
+					&v1.Secret{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "Secret",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "my-docker-registry-secret",
+							Namespace: "default",
+						},
+						Type: "kubernetes.io/dockerconfigjson",
 					},
 				},
 			},

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/alikhil/kubectl-find/pkg/printers"
+	"github.com/itchyny/gojq"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -184,8 +185,9 @@ type ActionOptions struct {
 	NameRegex     *regexp.Regexp
 	MinAge        time.Duration
 	MaxAge        time.Duration
-	SkipConfirm   bool     // skip confirmation prompt before performing actions
-	ResourceType  Resource // type of resource being handled
+	SkipConfirm   bool        // skip confirmation prompt before performing actions
+	ResourceType  Resource    // type of resource being handled
+	JQQuery       *gojq.Query // field selector to filter resources
 
 	// Pod related options
 	PodStatus     v1.PodPhase // only for pods, e.g. "Running", "Pending", etc.

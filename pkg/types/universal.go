@@ -162,5 +162,18 @@ func (h *UniversalHandler) resourceMatches(resource unstructured.Unstructured, o
 		}
 	}
 
+	if options.JQQuery != nil {
+		iter := options.JQQuery.Run(resource.Object)
+
+		v, ok := iter.Next()
+		if !ok {
+			return false
+		}
+		if _, errOk := v.(error); errOk {
+			return false
+		}
+		return v != nil
+	}
+
 	return true
 }

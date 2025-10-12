@@ -12,6 +12,7 @@ import (
 
 	"github.com/alikhil/kubectl-find/pkg/mocks"
 	"github.com/alikhil/kubectl-find/pkg/printers"
+	"github.com/itchyny/gojq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
@@ -719,6 +720,60 @@ func TestPodsHandler(t *testing.T) {
 						},
 						Spec: v1.PodSpec{
 							NodeName: "other-2",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "List pods with jq filter",
+			prepare: func(t *testing.T, f *fields, s *shared) error {
+				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
+				m.EXPECT().
+					PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[0:2]...)), gomock.Any()).
+					Return(nil).
+					Times(1)
+				f.printer = m
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Namespace: "default",
+					Action:    ActionList,
+					JQQuery: func() *gojq.Query {
+						q, err := gojq.Parse("[.] | .[] | select(.status.phase == \"Running\")")
+						require.NoError(t, err)
+						return q
+					}(),
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "running-pod-1",
+							Namespace: "default",
+						},
+						Status: v1.PodStatus{
+							Phase: v1.PodRunning,
+						},
+					},
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "running-pod-2",
+							Namespace: "default",
+						},
+						Status: v1.PodStatus{
+							Phase: v1.PodRunning,
+						},
+					},
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "pending-pod",
+							Namespace: "default",
+						},
+						Status: v1.PodStatus{
+							Phase: v1.PodPending,
 						},
 					},
 				},

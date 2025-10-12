@@ -280,6 +280,21 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 			}
 			return false
 		}
+		if opts.JQQuery != nil {
+			var unstr map[string]interface{}
+			unstr, _ = runtime.DefaultUnstructuredConverter.ToUnstructured(pod)
+			obj := unstructured.Unstructured{Object: unstr}
+
+			iter := opts.JQQuery.Run(obj.Object)
+			v, ok := iter.Next()
+			if !ok {
+				return false
+			}
+			if _, errOk := v.(error); errOk {
+				return false
+			}
+			return v != nil
+		}
 		return true
 	}
 }
