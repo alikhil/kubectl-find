@@ -1,3 +1,9 @@
+## v0.4.1 (2025-10-13)
+
+### Refactor
+
+-  gojq and pagination
+
 ## v0.4.0 (2025-10-12)
 
 ### Feat
