@@ -5,7 +5,7 @@ set -euo pipefail
 # Configuration
 REPO_OWNER="alikhil"
 REPO_NAME="kubectl-find"
-KREW_YAML_FILE="plugins/plugin-find.yaml"
+KREW_YAML_FILE="plugins/find.yaml"
 
 # Colors for output
 RED='\033[0;31m'
