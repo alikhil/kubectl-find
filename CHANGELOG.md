@@ -1,3 +1,9 @@
+## v0.4.0 (2025-10-12)
+
+### Feat
+
+- add jq filter support with gojq
+
 ## v0.3.1 (2025-09-11)
 
 ### Fix
