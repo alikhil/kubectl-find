@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alikhil/kubectl-find/pkg"
 	"github.com/alikhil/kubectl-find/pkg/mocks"
 	"github.com/alikhil/kubectl-find/pkg/printers"
 	"github.com/itchyny/gojq"
@@ -546,7 +547,7 @@ func TestUniversalHandler(t *testing.T) {
 					Action:       ActionList,
 					ResourceType: getResource("secret"),
 					JQQuery: func() *gojq.Query {
-						q, err := gojq.Parse("[.] | .[] | select(.type == \"kubernetes.io/service-account-token\")")
+						q, err := pkg.PrepareQuery(".type == \"kubernetes.io/service-account-token\"")
 						require.NoError(t, err)
 						return q
 					}(),

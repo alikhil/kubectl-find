@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/alikhil/kubectl-find/pkg"
 	"github.com/alikhil/kubectl-find/pkg/mocks"
 	"github.com/alikhil/kubectl-find/pkg/printers"
 	"github.com/itchyny/gojq"
@@ -741,7 +742,7 @@ func TestPodsHandler(t *testing.T) {
 					Namespace: "default",
 					Action:    ActionList,
 					JQQuery: func() *gojq.Query {
-						q, err := gojq.Parse("[.] | .[] | select(.status.phase == \"Running\")")
+						q, err := pkg.PrepareQuery(".status.phase == \"Running\"")
 						require.NoError(t, err)
 						return q
 					}(),

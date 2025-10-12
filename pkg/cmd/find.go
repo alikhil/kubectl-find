@@ -28,6 +28,7 @@ import (
 	"github.com/itchyny/gojq"
 	"github.com/spf13/cobra"
 
+	"github.com/alikhil/kubectl-find/pkg"
 	"github.com/alikhil/kubectl-find/pkg/types"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -393,8 +394,7 @@ func (o *FindOptions) Validate() error {
 	}
 	var jqQuery *gojq.Query
 	if o.jqFilter != "" {
-		jqFilter := fmt.Sprintf("[.] | .[] | select ( %s ) | length > 0", o.jqFilter)
-		jqQuery, err = gojq.Parse(jqFilter)
+		jqQuery, err = pkg.PrepareQuery(o.jqFilter)
 		if err != nil {
 			return fmt.Errorf("invalid jq filter %q: %w", o.jqFilter, err)
 		}

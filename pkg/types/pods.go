@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alikhil/kubectl-find/pkg"
 	"github.com/alikhil/kubectl-find/pkg/printers"
 	"github.com/alikhil/kubectl-find/pkg/prompts"
 	v1 "k8s.io/api/core/v1"
@@ -58,19 +59,36 @@ type PodHandler struct {
 	printer        printers.BatchPrinter
 }
 
+func (p *PodHandler) getAllPods(ctx context.Context, options ActionOptions) ([]v1.Pod, error) {
+	allPods := make([]v1.Pod, 0)
+	continueToken := ""
+	for {
+		pods, err := p.clientSet.CoreV1().
+			Pods(options.Namespace).
+			List(ctx, metav1.ListOptions{LabelSelector: options.LabelSelector, Continue: continueToken})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list pods: %w", err)
+		}
+		allPods = append(allPods, pods.Items...)
+		continueToken = pods.Continue
+		if continueToken == "" {
+			break
+		}
+	}
+	return allPods, nil
+}
+
 // HandleAction implements ResourceHandler.
 func (p *PodHandler) HandleAction(ctx context.Context, options ActionOptions) error {
 	matcher := p.getMatcher(options)
 
-	pods, err := p.clientSet.CoreV1().
-		Pods(options.Namespace).
-		List(ctx, metav1.ListOptions{LabelSelector: options.LabelSelector})
+	pods, err := p.getAllPods(ctx, options)
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
 	}
 
-	matchedPods := make([]*v1.Pod, 0, len(pods.Items))
-	for _, pod := range pods.Items {
+	matchedPods := make([]*v1.Pod, 0, len(pods))
+	for _, pod := range pods {
 		if matcher(&pod) {
 			matchedPods = append(matchedPods, &pod)
 		}
@@ -283,17 +301,11 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 		if opts.JQQuery != nil {
 			var unstr map[string]interface{}
 			unstr, _ = runtime.DefaultUnstructuredConverter.ToUnstructured(pod)
-			obj := unstructured.Unstructured{Object: unstr}
-
-			iter := opts.JQQuery.Run(obj.Object)
-			v, ok := iter.Next()
-			if !ok {
+			matches, err := pkg.MatchesWithGoJQ(unstr, opts.JQQuery)
+			if err != nil || !matches {
 				return false
 			}
-			if _, errOk := v.(error); errOk {
-				return false
-			}
-			return v != nil
+			return true
 		}
 		return true
 	}

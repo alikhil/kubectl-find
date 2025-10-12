@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/alikhil/kubectl-find/pkg"
 	"github.com/alikhil/kubectl-find/pkg/printers"
 	"github.com/alikhil/kubectl-find/pkg/prompts"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,8 +54,32 @@ func (h *UniversalHandler) printResource(
 	return nil
 }
 
+func (h *UniversalHandler) getResources(
+	ctx context.Context,
+	resources dynamic.ResourceInterface,
+	options ActionOptions,
+) ([]unstructured.Unstructured, error) {
+	var allResources []unstructured.Unstructured
+	continueToken := ""
+	for {
+		listOptions := v1.ListOptions{
+			LabelSelector: options.LabelSelector,
+			Continue:      continueToken,
+		}
+		list, err := resources.List(ctx, listOptions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list resources: %w", err)
+		}
+		allResources = append(allResources, list.Items...)
+		continueToken = list.GetContinue()
+		if continueToken == "" {
+			break
+		}
+	}
+	return allResources, nil
+}
+
 func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptions) error {
-	// todo: move to another place
 	if options.PatchStrategy == "" {
 		options.PatchStrategy = k8s_types.StrategicMergePatchType
 	}
@@ -65,15 +90,13 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 		resources = h.opts.Client.Resource(h.opts.Resource.GroupVersionResource)
 	}
 
-	list, err := resources.List(ctx, v1.ListOptions{
-		LabelSelector: options.LabelSelector,
-	})
+	list, err := h.getResources(ctx, resources, options)
 	if err != nil {
 		return fmt.Errorf("failed to list %s: %w", h.opts.Resource.PluralName, err)
 	}
 
-	matchedItems := make([]unstructured.Unstructured, 0, len(list.Items))
-	for _, item := range list.Items {
+	matchedItems := make([]unstructured.Unstructured, 0, len(list))
+	for _, item := range list {
 		if h.resourceMatches(item, &options) {
 			matchedItems = append(matchedItems, item)
 		}
@@ -163,16 +186,11 @@ func (h *UniversalHandler) resourceMatches(resource unstructured.Unstructured, o
 	}
 
 	if options.JQQuery != nil {
-		iter := options.JQQuery.Run(resource.Object)
-
-		v, ok := iter.Next()
-		if !ok {
+		matches, err := pkg.MatchesWithGoJQ(resource.Object, options.JQQuery)
+		if err != nil || !matches {
 			return false
 		}
-		if _, errOk := v.(error); errOk {
-			return false
-		}
-		return v != nil
+		return true
 	}
 
 	return true
