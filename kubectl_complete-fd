@@ -6,7 +6,7 @@ args=("$@")
 lastArg=${args[((${#args[@]}-1))]}
 if [[ "$lastArg" == -* ]]; then
    if [[ "$lastArg" != *=* ]]; then
-      kubectl find __complete "$@"
+      kubectl fd __complete "$@"
    fi
 else
    # TODO Make sure we are not completing the value of a flag.
