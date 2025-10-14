@@ -12,7 +12,7 @@ require (
 	github.com/spf13/cobra v1.10.0
 	github.com/spf13/pflag v1.0.9
 	github.com/stretchr/testify v1.11.1
-	go.uber.org/mock v0.5.2
+	go.uber.org/mock v0.6.0
 	k8s.io/api v0.35.0-alpha.1
 	k8s.io/apimachinery v0.35.0-alpha.1
 	k8s.io/cli-runtime v0.35.0-alpha.1
