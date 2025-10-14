@@ -4,7 +4,7 @@ module github.com/alikhil/kubectl-find
 
 go 1.25.0
 
-godebug default=go1.24
+godebug default=go1.25
 
 require (
 	github.com/itchyny/gojq v0.12.17
