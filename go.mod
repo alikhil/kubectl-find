@@ -10,7 +10,7 @@ require (
 	github.com/itchyny/gojq v0.12.17
 	github.com/olekukonko/tablewriter v1.0.7
 	github.com/spf13/cobra v1.10.1
-	github.com/spf13/pflag v1.0.9
+	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
 	k8s.io/api v0.35.0-alpha.1
