@@ -1,4 +1,4 @@
-package types
+package handlers
 
 import (
 	"bytes"
@@ -796,7 +796,7 @@ func TestPodsHandler(t *testing.T) {
 			}
 
 			ff := fields{}
-			ff.clientSet = fake.NewSimpleClientset(shared.resources...)
+			ff.clientSet = fake.NewClientset(shared.resources...)
 
 			shared.streams, shared.in, shared.out, shared.errOut = genericclioptions.NewTestIOStreams()
 

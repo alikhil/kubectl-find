@@ -29,7 +29,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/alikhil/kubectl-find/pkg"
-	"github.com/alikhil/kubectl-find/pkg/types"
+	"github.com/alikhil/kubectl-find/pkg/handlers"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -93,9 +93,9 @@ type FindOptions struct {
 
 	args []string
 
-	resourceType types.Resource
-	handler      types.ResourceHandler
-	options      types.ActionOptions
+	resourceType handlers.Resource
+	handler      handlers.ResourceHandler
+	options      handlers.ActionOptions
 
 	genericiooptions.IOStreams
 }
@@ -230,9 +230,9 @@ func cleanResourceName(resource string) string {
 	return resource
 }
 
-func (o *FindOptions) findResource(resource string) (types.Resource, error) {
+func (o *FindOptions) findResource(resource string) (handlers.Resource, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(o.rest)
-	empty := types.Resource{}
+	empty := handlers.Resource{}
 	if err != nil {
 		return empty, fmt.Errorf("unable to create discovery client: %w", err)
 	}
@@ -262,7 +262,7 @@ func (o *FindOptions) findResource(resource string) (types.Resource, error) {
 
 	for _, resource := range apiResourceList.APIResources {
 		if resource.Name == resolved.Resource {
-			return types.Resource{
+			return handlers.Resource{
 				GroupVersionResource: resolved,
 				PluralName:           resource.Name,
 				SingularName:         resource.SingularName,
@@ -295,9 +295,9 @@ func (o *FindOptions) Validate() error {
 		return fmt.Errorf("unable to create dynamic client: %w", err)
 	}
 
-	o.handler, err = types.GetResourceHandler(
+	o.handler, err = handlers.GetResourceHandler(
 		o.resourceType,
-		types.NewHandlerOptions().
+		handlers.NewHandlerOptions().
 			WithClientSet(clientSet).
 			WithNamespaced(o.allNamespaces).
 			WithRestarted(o.restarted).
@@ -319,27 +319,27 @@ func (o *FindOptions) Validate() error {
 		return fmt.Errorf("no handler found for resource type %s", o.resourceType.SingularName)
 	}
 
-	action := types.ActionList
+	action := handlers.ActionList
 	if o.delete {
-		action = types.ActionDelete
+		action = handlers.ActionDelete
 	}
 	if o.patch != "" {
 		if o.delete {
 			return errors.New("cannot specify both --delete and --patch flags")
 		}
-		action = types.ActionPatch
+		action = handlers.ActionPatch
 	}
 	if o.exec != "" {
 		if o.delete || o.patch != "" {
 			return errors.New("cannot specify both --delete or --patch and --exec flags")
 		}
-		if o.resourceType.GroupVersionResource != types.PodType {
+		if o.resourceType.GroupVersionResource != handlers.PodType {
 			return fmt.Errorf("exec action is only supported for pods, but got %q", o.resourceType.PluralName)
 		}
-		action = types.ActionExec
+		action = handlers.ActionExec
 	}
 
-	if action == types.ActionExec && !o.handler.IsExecutable() {
+	if action == handlers.ActionExec && !o.handler.IsExecutable() {
 		return fmt.Errorf("resource type %q does not support execution", o.resourceType)
 	}
 
@@ -365,17 +365,17 @@ func (o *FindOptions) Validate() error {
 	}
 
 	if o.podStatus != "" {
-		if o.resourceType.GroupVersionResource != types.PodType {
+		if o.resourceType.GroupVersionResource != handlers.PodType {
 			return fmt.Errorf("status filtering is only supported for pods, but got %q", o.resourceType)
 		}
-		if !types.IsValidPodStatus(o.podStatus) {
-			return fmt.Errorf("invalid pod status %q, must be one of: %v", o.podStatus, types.ValidPodStatuses)
+		if !handlers.IsValidPodStatus(o.podStatus) {
+			return fmt.Errorf("invalid pod status %q, must be one of: %v", o.podStatus, handlers.ValidPodStatuses)
 		}
 	}
 
 	var nodeNameRegex *regexp.Regexp
 	if o.nodeNameRegex != "" {
-		if o.resourceType.GroupVersionResource != types.PodType {
+		if o.resourceType.GroupVersionResource != handlers.PodType {
 			return fmt.Errorf("node filtering is only supported for pods, but got %q", o.resourceType)
 		}
 		if nodeNameRegex, err = regexp.Compile(o.nodeNameRegex); err != nil {
@@ -385,7 +385,7 @@ func (o *FindOptions) Validate() error {
 
 	var imagesRegex *regexp.Regexp
 	if o.imageRegex != "" {
-		if o.resourceType.GroupVersionResource != types.PodType {
+		if o.resourceType.GroupVersionResource != handlers.PodType {
 			return fmt.Errorf("image filtering is only supported for pods, but got %q", o.resourceType)
 		}
 		if imagesRegex, err = regexp.Compile(o.imageRegex); err != nil {
@@ -403,7 +403,7 @@ func (o *FindOptions) Validate() error {
 		}
 	}
 
-	o.options = types.ActionOptions{
+	o.options = handlers.ActionOptions{
 		Namespace:     o.userSpecifiedNamespace,
 		Action:        action,
 		NameRegex:     reg,
@@ -414,7 +414,7 @@ func (o *FindOptions) Validate() error {
 		JQQuery:       jqQuery,
 		NodeNameRegex: nodeNameRegex,
 		SkipConfirm:   o.skipConfirm,
-		PodStatus:     types.ToPodPhase(o.podStatus),
+		PodStatus:     handlers.ToPodPhase(o.podStatus),
 		Exec:          o.exec,
 		Patch:         o.patch,
 		ResourceType:  o.resourceType,
