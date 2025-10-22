@@ -2,19 +2,14 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/alikhil/kubectl-find/pkg/printers"
 	"github.com/itchyny/gojq"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8s_types "k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -30,6 +25,13 @@ type Resource struct {
 //nolint:gochecknoglobals
 var PodType = schema.GroupVersionResource{
 	Resource: "pods",
+	Group:    "",
+	Version:  "v1",
+}
+
+//nolint:gochecknoglobals
+var ServiceType = schema.GroupVersionResource{
+	Resource: "services",
 	Group:    "",
 	Version:  "v1",
 }
@@ -58,7 +60,10 @@ func (a Action) String() string {
 	}
 }
 
-const UnknownStr = "<unknown>"
+const (
+	UnknownStr = "<unknown>"
+	NoneStr    = "<none>"
+)
 
 type HandlerOptions struct {
 	clientSet      kubernetes.Interface
@@ -106,63 +111,11 @@ func (o HandlerOptions) WithDynamic(dynamic dynamic.Interface) HandlerOptions {
 func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler, error) {
 	switch resource.GroupVersionResource {
 	case PodType:
-		columns := []printers.Column{
-			{
-				Header: "STATUS",
-				Value: func(obj unstructured.Unstructured) string {
-					if status, found, _ := unstructured.NestedString(obj.Object, "status", "phase"); found {
-						return status
-					}
-					return UnknownStr
-				},
-			},
-		}
-		if opts.restarted {
-			columns = append(columns, printers.Column{
-				Header: "RESTARTS",
-				Value: func(obj unstructured.Unstructured) string {
-					pod := &v1.Pod{}
-					if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, pod); err != nil {
-						return UnknownStr
-					}
-					totalRestarts := 0
-					lastRestart := time.Time{}
-					for _, cs := range pod.Status.ContainerStatuses {
-						totalRestarts += int(cs.RestartCount)
-						if cs.RestartCount > 0 &&
-							lastRestart.Before(cs.LastTerminationState.Terminated.FinishedAt.Time) {
-							lastRestart = cs.LastTerminationState.Terminated.FinishedAt.Time
-						}
-					}
-					return fmt.Sprintf(
-						"%d (%s ago)",
-						totalRestarts,
-						duration.HumanDuration(time.Since(lastRestart)),
-					)
-				},
-			})
-		}
-		if opts.withImages {
-			columns = append(columns, printers.Column{
-				Header: "IMAGES",
-				Value: func(obj unstructured.Unstructured) string {
-					pod := &v1.Pod{}
-					if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, pod); err != nil {
-						return UnknownStr
-					}
-					var images []string
-					for _, container := range pod.Spec.Containers {
-						images = append(images, container.Image)
-					}
-					return strings.Join(images, ", ")
-				},
-			})
-		}
 		return &PodHandler{
 			clientSet: opts.clientSet,
 			printer: printers.NewTablePrinter(printers.TablePrinterOptions{
 				ShowNamespace:     opts.allNamespaces,
-				AdditionalColumns: columns,
+				AdditionalColumns: GetColumnsForPods(opts),
 			}),
 			executorGetter: opts.executorGetter,
 		}, nil
@@ -171,7 +124,8 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 		return NewUniversalHandler(UniversalHandlerOptions{
 			Client: opts.dynamic,
 			Printer: printers.NewTablePrinter(printers.TablePrinterOptions{
-				ShowNamespace: resource.IsNamespaced && opts.allNamespaces,
+				ShowNamespace:     resource.IsNamespaced && opts.allNamespaces,
+				AdditionalColumns: GetColumnsFor(opts, resource.GroupVersionResource),
 			}),
 			Resource: resource,
 		}), nil
