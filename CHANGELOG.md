@@ -1,3 +1,9 @@
+## v0.6.0 (2025-10-22)
+
+### Feat
+
+- add custom columns for service resource to match kubectl get svc output
+
 ## v0.5.0 (2025-10-14)
 
 ### Feat
