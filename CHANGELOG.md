@@ -1,3 +1,9 @@
+## v0.7.0 (2025-10-30)
+
+### Feat
+
+- add printing of resource labels and node labels for pods (i.e topology.kubernetes.io/zone)
+
 ## v0.6.0 (2025-10-22)
 
 ### Feat
