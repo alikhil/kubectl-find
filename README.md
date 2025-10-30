@@ -114,6 +114,39 @@ kubectl fd pods --status failed -A --delete
 kubectl fd --restarted
 ```
 
+### Enhanced output
+
+#### Show resource labels
+
+```shell
+k fd -L app.kubernetes.io/component
+NAME                                              STATUS    AGE    COMPONENT
+admin-backend-server-6fb6bbb8f6-2xntp             Running   7h4m   deployments-server
+admin-frontend-nginx-b8c88b7b4-pxx2x              Running   3h7m   deployments-nginx
+top-react-ok-app-develop-nginx-586c65496f-h4b9p   Running   11h    deployments-nginx
+top-react-ok-app-stage-nginx-8595cbfb6c-qzt2z     Running   11h    deployments-nginx
+nginx                                             Running   18d    <none>
+redis-redis-ha-server-0                           Running   11h    <none>
+super-admin-server-65d57f8787-5c9sd               Running   11h    deployments-server
+ok-web-app-nginx-5c78887cbf-2n8fw                 Running   11h    deployments-nginx
+```
+
+#### Show node labels of the pods
+
+```shell
+k fd -N topology.kubernetes.io/zone
+NAME                                              STATUS    AGE    NODE             ZONE
+admin-backend-server-6fb6bbb8f6-2xntp             Running   7h5m   nodeee-short-2   eu-central1-b
+admin-frontend-nginx-b8c88b7b4-pxx2x              Running   3h8m   nodeee-short-2   eu-central1-b
+top-react-ok-app-develop-nginx-586c65496f-h4b9p   Running   11h    nodeee-short-2   eu-central1-b
+top-react-ok-app-stage-nginx-8595cbfb6c-qzt2z     Running   11h    nodeee-short-2   eu-central1-b
+nginx                                             Running   18d    nodeee-long-3    eu-central1-b
+redis-redis-ha-server-0                           Running   11h    nodeee-short-2   eu-central1-b
+super-admin-server-65d57f8787-5c9sd               Running   11h    nodeee-short-2   eu-central1-b
+ok-web-app-nginx-5c78887cbf-2n8fw                 Running   11h    nodeee-short-2   eu-central1-b
+zipkin-ok-shop-zipkin-5d94fcdc67-r8pcx            Running   10d    nodeee-long-1    eu-central1-b
+```
+
 ## Completion
 
 Copy [kubectl_complete-fd](https://github.com/alikhil/kubectl-find/blob/main/kubectl_complete-fd) script somewhere under `PATH`.
