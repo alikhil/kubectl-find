@@ -1,3 +1,9 @@
+## v0.8.0 (2025-10-30)
+
+### Feat
+
+- add natural sort support
+
 ## v0.7.0 (2025-10-30)
 
 ### Feat
