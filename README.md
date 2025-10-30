@@ -38,6 +38,7 @@ Flags:
       --node string                    Filter pods by node name regex; Uses pod.Spec.NodeName or pod.Status.NominatedNodeName if the former is empty.
   -L, --labels strings                 Comma-separated list of labels to show.
   -N, --node-labels strings            Comma-separated list of node labels to show.
+      --natural-sort                   Sort resource names in natural order.
   -h, --help                           help for kubectl find
   -p, --patch string                   Patch all found resources with the specified JSON patch.
   -e, --exec string                    Execute a command on all found pods.
@@ -145,6 +146,52 @@ redis-redis-ha-server-0                           Running   11h    nodeee-short-
 super-admin-server-65d57f8787-5c9sd               Running   11h    nodeee-short-2   eu-central1-b
 ok-web-app-nginx-5c78887cbf-2n8fw                 Running   11h    nodeee-short-2   eu-central1-b
 zipkin-ok-shop-zipkin-5d94fcdc67-r8pcx            Running   10d    nodeee-long-1    eu-central1-b
+```
+
+#### Natural sort
+
+Normal sort
+
+```shell
+kubectl fd
+NAME       STATUS    AGE
+nginx-0    Running   5m14s
+nginx-1    Running   5m12s
+nginx-10   Running   4m53s
+nginx-11   Running   4m50s
+nginx-12   Running   4m48s
+nginx-13   Running   4m46s
+nginx-14   Running   4m44s
+nginx-2    Running   5m10s
+nginx-3    Running   5m7s
+nginx-4    Running   5m5s
+nginx-5    Running   5m3s
+nginx-6    Running   5m1s
+nginx-7    Running   4m59s
+nginx-8    Running   4m57s
+nginx-9    Running   4m55s
+```
+
+Natural sort
+
+```shell
+kubectl fd --natural-sort
+NAME       STATUS    AGE
+nginx-0    Running   6m6s
+nginx-1    Running   6m4s
+nginx-2    Running   6m2s
+nginx-3    Running   5m59s
+nginx-4    Running   5m57s
+nginx-5    Running   5m55s
+nginx-6    Running   5m53s
+nginx-7    Running   5m51s
+nginx-8    Running   5m49s
+nginx-9    Running   5m47s
+nginx-10   Running   5m45s
+nginx-11   Running   5m42s
+nginx-12   Running   5m40s
+nginx-13   Running   5m38s
+nginx-14   Running   5m36s
 ```
 
 ## Completion

@@ -90,6 +90,7 @@ type FindOptions struct {
 	restarted     bool
 	imageRegex    string
 	jqFilter      string
+	naturalSort   bool
 
 	showNodeLabels []string
 	showLabels     []string
@@ -169,6 +170,8 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 		StringSliceVarP(&o.showNodeLabels, "node-labels", "N", nil, "Comma-separated list of node labels to show.")
 	cmd.Flags().
 		StringSliceVarP(&o.showLabels, "labels", "L", nil, "Comma-separated list of labels to show.")
+	cmd.Flags().
+		BoolVar(&o.naturalSort, "natural-sort", false, "Sort resource names in natural order.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
@@ -435,6 +438,7 @@ func (o *FindOptions) Validate() error {
 		ImageRegex:     imagesRegex,
 		ShowNodeLabels: o.showNodeLabels,
 		ShowLabels:     o.showLabels,
+		NaturalSort:    o.naturalSort,
 	}
 
 	return nil

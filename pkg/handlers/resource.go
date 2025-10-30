@@ -157,6 +157,7 @@ type ActionOptions struct {
 	ResourceType  Resource    // type of resource being handled
 	JQQuery       *gojq.Query // field selector to filter resources
 	ShowLabels    []string    // list of labels to show in output
+	NaturalSort   bool        // sort resource names in natural order
 
 	// Pod related options
 	PodStatus      v1.PodPhase // only for pods, e.g. "Running", "Pending", etc.

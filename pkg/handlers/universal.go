@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"time"
 
 	"github.com/alikhil/kubectl-find/pkg"
 	"github.com/alikhil/kubectl-find/pkg/printers"
 	"github.com/alikhil/kubectl-find/pkg/prompts"
+	"github.com/alikhil/kubectl-find/pkg/sortby"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8s_types "k8s.io/apimachinery/pkg/types"
@@ -103,6 +105,10 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 	}
 	if len(matchedItems) == 0 {
 		return nil
+	}
+
+	if options.NaturalSort {
+		sort.Sort(sortby.UnstructuredSlice(matchedItems))
 	}
 
 	if options.Action == ActionList {

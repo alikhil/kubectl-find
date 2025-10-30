@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/alikhil/kubectl-find/pkg"
 	"github.com/alikhil/kubectl-find/pkg/printers"
 	"github.com/alikhil/kubectl-find/pkg/prompts"
+	"github.com/alikhil/kubectl-find/pkg/sortby"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -96,6 +98,10 @@ func (p *PodHandler) HandleAction(ctx context.Context, options ActionOptions) er
 
 	if len(matchedPods) == 0 {
 		return nil
+	}
+
+	if options.NaturalSort {
+		sort.Sort(sortby.PodSlice(matchedPods))
 	}
 
 	switch options.Action {
