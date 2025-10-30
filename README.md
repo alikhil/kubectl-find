@@ -36,6 +36,8 @@ Flags:
       --max-age string                 Filter resources by maximum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.
       --min-age string                 Filter resources by minimum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.
       --node string                    Filter pods by node name regex; Uses pod.Spec.NodeName or pod.Status.NominatedNodeName if the former is empty.
+  -L, --labels strings                 Comma-separated list of labels to show.
+  -N, --node-labels strings            Comma-separated list of node labels to show.
   -h, --help                           help for kubectl find
   -p, --patch string                   Patch all found resources with the specified JSON patch.
   -e, --exec string                    Execute a command on all found pods.

@@ -91,6 +91,9 @@ type FindOptions struct {
 	imageRegex    string
 	jqFilter      string
 
+	showNodeLabels []string
+	showLabels     []string
+
 	args []string
 
 	resourceType handlers.Resource
@@ -162,6 +165,10 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 		StringVar(&o.imageRegex, "image", "", "Regular expression to match container images against.")
 	cmd.Flags().
 		StringVarP(&o.jqFilter, "jq", "j", "", "jq expression to filter resources; Uses gojq library for evaluation.")
+	cmd.Flags().
+		StringSliceVarP(&o.showNodeLabels, "node-labels", "N", nil, "Comma-separated list of node labels to show.")
+	cmd.Flags().
+		StringSliceVarP(&o.showLabels, "labels", "L", nil, "Comma-separated list of labels to show.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
@@ -303,6 +310,8 @@ func (o *FindOptions) Validate() error {
 			WithRestarted(o.restarted).
 			WithDynamic(dynamic).
 			WithImages(o.imageRegex != "").
+			WithLabels(o.showLabels).
+			WithNodeLabels(o.showNodeLabels).
 			WithExecutorGetter(func(method string, url *url.URL) (remotecommand.Executor, error) {
 				return remotecommand.NewSPDYExecutor(
 					o.rest,
@@ -373,6 +382,10 @@ func (o *FindOptions) Validate() error {
 		}
 	}
 
+	if o.showNodeLabels != nil && o.resourceType.GroupVersionResource != handlers.PodType {
+		return fmt.Errorf("showing node labels is only supported for pods, but got %q", o.resourceType)
+	}
+
 	var nodeNameRegex *regexp.Regexp
 	if o.nodeNameRegex != "" {
 		if o.resourceType.GroupVersionResource != handlers.PodType {
@@ -404,22 +417,24 @@ func (o *FindOptions) Validate() error {
 	}
 
 	o.options = handlers.ActionOptions{
-		Namespace:     o.userSpecifiedNamespace,
-		Action:        action,
-		NameRegex:     reg,
-		MaxAge:        maxAge,
-		MinAge:        minAge,
-		LabelSelector: o.labelSelector, // todo: add validation for label selector
-		Streams:       &o.IOStreams,
-		JQQuery:       jqQuery,
-		NodeNameRegex: nodeNameRegex,
-		SkipConfirm:   o.skipConfirm,
-		PodStatus:     handlers.ToPodPhase(o.podStatus),
-		Exec:          o.exec,
-		Patch:         o.patch,
-		ResourceType:  o.resourceType,
-		Restarted:     o.restarted,
-		ImageRegex:    imagesRegex,
+		Namespace:      o.userSpecifiedNamespace,
+		Action:         action,
+		NameRegex:      reg,
+		MaxAge:         maxAge,
+		MinAge:         minAge,
+		LabelSelector:  o.labelSelector, // todo: add validation for label selector
+		Streams:        &o.IOStreams,
+		JQQuery:        jqQuery,
+		NodeNameRegex:  nodeNameRegex,
+		SkipConfirm:    o.skipConfirm,
+		PodStatus:      handlers.ToPodPhase(o.podStatus),
+		Exec:           o.exec,
+		Patch:          o.patch,
+		ResourceType:   o.resourceType,
+		Restarted:      o.restarted,
+		ImageRegex:     imagesRegex,
+		ShowNodeLabels: o.showNodeLabels,
+		ShowLabels:     o.showLabels,
 	}
 
 	return nil

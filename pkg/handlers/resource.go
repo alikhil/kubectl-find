@@ -72,6 +72,8 @@ type HandlerOptions struct {
 	allNamespaces  bool
 	restarted      bool
 	withImages     bool
+	labels         []string
+	nodeLabels     []string
 }
 
 func NewHandlerOptions() HandlerOptions {
@@ -108,6 +110,16 @@ func (o HandlerOptions) WithDynamic(dynamic dynamic.Interface) HandlerOptions {
 	return o
 }
 
+func (o HandlerOptions) WithLabels(withLabels []string) HandlerOptions {
+	o.labels = withLabels
+	return o
+}
+
+func (o HandlerOptions) WithNodeLabels(withNodeLabels []string) HandlerOptions {
+	o.nodeLabels = withNodeLabels
+	return o
+}
+
 func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler, error) {
 	switch resource.GroupVersionResource {
 	case PodType:
@@ -115,7 +127,8 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 			clientSet: opts.clientSet,
 			printer: printers.NewTablePrinter(printers.TablePrinterOptions{
 				ShowNamespace:     opts.allNamespaces,
-				AdditionalColumns: GetColumnsForPods(opts),
+				AdditionalColumns: GetColumnsFor(opts, resource.GroupVersionResource),
+				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
 			}),
 			executorGetter: opts.executorGetter,
 		}, nil
@@ -126,6 +139,7 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 			Printer: printers.NewTablePrinter(printers.TablePrinterOptions{
 				ShowNamespace:     resource.IsNamespaced && opts.allNamespaces,
 				AdditionalColumns: GetColumnsFor(opts, resource.GroupVersionResource),
+				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
 			}),
 			Resource: resource,
 		}), nil
@@ -142,15 +156,17 @@ type ActionOptions struct {
 	SkipConfirm   bool        // skip confirmation prompt before performing actions
 	ResourceType  Resource    // type of resource being handled
 	JQQuery       *gojq.Query // field selector to filter resources
+	ShowLabels    []string    // list of labels to show in output
 
 	// Pod related options
-	PodStatus     v1.PodPhase // only for pods, e.g. "Running", "Pending", etc.
-	Patch         string
-	PatchStrategy k8s_types.PatchType // type of patch to apply, e.g. "json", "merge", etc.
-	Exec          string              // command to execute on pods
-	NodeNameRegex *regexp.Regexp      // filter pods by node name, only applicable for pod resources
-	Restarted     bool                // only for pods, find pods that have been restarted at least once
-	ImageRegex    *regexp.Regexp      // filter pods by container image, only applicable for pod resources
+	PodStatus      v1.PodPhase // only for pods, e.g. "Running", "Pending", etc.
+	Patch          string
+	PatchStrategy  k8s_types.PatchType // type of patch to apply, e.g. "json", "merge", etc.
+	Exec           string              // command to execute on pods
+	NodeNameRegex  *regexp.Regexp      // filter pods by node name, only applicable for pod resources
+	Restarted      bool                // only for pods, find pods that have been restarted at least once
+	ImageRegex     *regexp.Regexp      // filter pods by container image, only applicable for pod resources
+	ShowNodeLabels []string            // list of node labels to show, only applicable for pod resources
 
 	Streams *genericclioptions.IOStreams
 }
