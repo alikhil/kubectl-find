@@ -8,12 +8,15 @@ import (
 
 	"github.com/alikhil/kubectl-find/pkg/printers"
 	v1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/util/jsonpath"
 )
 
 func labelToColumnHeader(label string) string {
@@ -152,14 +155,131 @@ func getColumnsForServices(_ HandlerOptions) []printers.Column {
 	return columns
 }
 
-func GetColumnsFor(opts HandlerOptions, resourceType schema.GroupVersionResource) []printers.Column {
-	switch resourceType {
+func GetColumnsFor(opts HandlerOptions, resourceType Resource) []printers.Column {
+	switch resourceType.GroupVersionResource {
 	case PodType:
 		return getColumnsForPods(opts)
 	case ServiceType:
 		return getColumnsForServices(opts)
 	default:
+
+		if !isBuiltin(scheme.Scheme, resourceType.GroupVersionKind) {
+			// Check if this is a CRD and try to get additionalPrinterColumns
+			if columns := getColumnsFromCRD(opts, resourceType.GroupVersionResource); columns != nil {
+				return columns
+			}
+		}
 		return nil
+	}
+}
+
+func isBuiltin(sh *runtime.Scheme, resourceType schema.GroupVersionKind) bool {
+	knownTypes := sh.KnownTypes(resourceType.GroupVersion())
+	_, found := knownTypes[resourceType.Kind]
+	return found
+}
+
+func getColumnsFromCRD(opts HandlerOptions, resourceType schema.GroupVersionResource) []printers.Column {
+	// CRDs are in apiextensions.k8s.io/v1
+	crdGVR := schema.GroupVersionResource{
+		Group:    "apiextensions.k8s.io",
+		Version:  "v1",
+		Resource: "customresourcedefinitions",
+	}
+
+	// Get the CRD definition
+	// CRD name format: <resource>.<group>
+	crdName := fmt.Sprintf("%s.%s", resourceType.Resource, resourceType.Group)
+	crd, err := opts.dynamic.Resource(crdGVR).Get(context.Background(), crdName, metav1.GetOptions{})
+	if err != nil {
+		// Not a CRD or CRD not found
+		return nil
+	}
+	// Cast to CustomResourceDefinition for type-safe access
+	crdTyped := &apiextensionsv1.CustomResourceDefinition{}
+	if err = runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(crd.Object, crdTyped, true); err != nil {
+		return nil
+	}
+
+	// Find the version matching our resource
+	for _, version := range crdTyped.Spec.Versions {
+		if version.Name != resourceType.Version {
+			continue
+		}
+
+		// Get additionalPrinterColumns for this version
+		if len(version.AdditionalPrinterColumns) == 0 {
+			continue
+		}
+
+		return convertCRDColumnsToTableColumns(version.AdditionalPrinterColumns)
+	}
+
+	return nil
+}
+
+func convertCRDColumnsToTableColumns(crdColumns []apiextensionsv1.CustomResourceColumnDefinition) []printers.Column {
+	var columns []printers.Column
+
+	for _, col := range crdColumns {
+		name := col.Name
+		jsonPathStr := col.JSONPath
+
+		if col.Priority > 0 {
+			// skipping low priority columns for now
+			// todo: add option to include them possible with -o wide flag
+			continue
+		}
+
+		if col.Name == "Age" {
+			// Age column is handled separately by printers, skip it here
+			continue
+		}
+
+		// Parse the JSONPath expression
+		jp := jsonpath.New(name)
+		if err := jp.Parse(fmt.Sprintf("{%s}", jsonPathStr)); err != nil {
+			// If parsing fails, skip this column
+			continue
+		}
+
+		columns = append(columns, printers.Column{
+			Header: strings.ToUpper(name),
+			Value: func(obj unstructured.Unstructured) string {
+				return extractValueFromJSONPath(obj, jp)
+			},
+		})
+	}
+
+	return columns
+}
+
+func extractValueFromJSONPath(obj unstructured.Unstructured, jp *jsonpath.JSONPath) string {
+	// Execute the JSONPath query
+	results, err := jp.FindResults(obj.UnstructuredContent())
+	if err != nil || len(results) == 0 || len(results[0]) == 0 {
+		return NoneStr
+	}
+
+	// Get the first result value
+	val := results[0][0].Interface()
+
+	// Special handling for common types
+	switch v := val.(type) {
+	case string:
+		return v
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	case int64, int32, int, float64, float32:
+		return fmt.Sprintf("%v", v)
+	case nil:
+		return NoneStr
+	default:
+		// For complex types or timestamps, format as string
+		return fmt.Sprintf("%v", v)
 	}
 }
 

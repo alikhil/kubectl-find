@@ -17,6 +17,7 @@ import (
 
 type Resource struct {
 	schema.GroupVersionResource
+	schema.GroupVersionKind
 	PluralName   string
 	SingularName string
 	IsNamespaced bool
@@ -127,7 +128,7 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 			clientSet: opts.clientSet,
 			printer: printers.NewTablePrinter(printers.TablePrinterOptions{
 				ShowNamespace:     opts.allNamespaces,
-				AdditionalColumns: GetColumnsFor(opts, resource.GroupVersionResource),
+				AdditionalColumns: GetColumnsFor(opts, resource),
 				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
 			}),
 			executorGetter: opts.executorGetter,
@@ -138,7 +139,7 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 			Client: opts.dynamic,
 			Printer: printers.NewTablePrinter(printers.TablePrinterOptions{
 				ShowNamespace:     resource.IsNamespaced && opts.allNamespaces,
-				AdditionalColumns: GetColumnsFor(opts, resource.GroupVersionResource),
+				AdditionalColumns: GetColumnsFor(opts, resource),
 				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
 			}),
 			Resource: resource,

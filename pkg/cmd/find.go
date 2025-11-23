@@ -263,6 +263,11 @@ func (o *FindOptions) findResource(resource string) (handlers.Resource, error) {
 		return empty, fmt.Errorf("unable to resolve resource %s: %w", resource, err)
 	}
 
+	gvk, err := restMapper.KindFor(resolved)
+	if err != nil {
+		return empty, fmt.Errorf("unable to get kind for resource %q: %w", resource, err)
+	}
+
 	groupVersion := resolved.GroupVersion().String()
 
 	apiResourceList, err := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
@@ -277,6 +282,7 @@ func (o *FindOptions) findResource(resource string) (handlers.Resource, error) {
 				PluralName:           resource.Name,
 				SingularName:         resource.SingularName,
 				IsNamespaced:         resource.Namespaced,
+				GroupVersionKind:     gvk,
 			}, nil
 		}
 	}
@@ -352,7 +358,8 @@ func (o *FindOptions) Validate() error {
 	}
 
 	if action == handlers.ActionExec && !o.handler.IsExecutable() {
-		return fmt.Errorf("resource type %q does not support execution", o.resourceType)
+		return fmt.Errorf("resource type %q does not support execution",
+			o.resourceType.GroupVersionResource.String())
 	}
 
 	var reg *regexp.Regexp
@@ -378,7 +385,8 @@ func (o *FindOptions) Validate() error {
 
 	if o.podStatus != "" {
 		if o.resourceType.GroupVersionResource != handlers.PodType {
-			return fmt.Errorf("status filtering is only supported for pods, but got %q", o.resourceType)
+			return fmt.Errorf("status filtering is only supported for pods, but got %q",
+				o.resourceType.GroupVersionResource.String())
 		}
 		if !handlers.IsValidPodStatus(o.podStatus) {
 			return fmt.Errorf("invalid pod status %q, must be one of: %v", o.podStatus, handlers.ValidPodStatuses)
@@ -386,13 +394,15 @@ func (o *FindOptions) Validate() error {
 	}
 
 	if o.showNodeLabels != nil && o.resourceType.GroupVersionResource != handlers.PodType {
-		return fmt.Errorf("showing node labels is only supported for pods, but got %q", o.resourceType)
+		return fmt.Errorf("showing node labels is only supported for pods, but got %q",
+			o.resourceType.GroupVersionResource.String())
 	}
 
 	var nodeNameRegex *regexp.Regexp
 	if o.nodeNameRegex != "" {
 		if o.resourceType.GroupVersionResource != handlers.PodType {
-			return fmt.Errorf("node filtering is only supported for pods, but got %q", o.resourceType)
+			return fmt.Errorf("node filtering is only supported for pods, but got %q",
+				o.resourceType.GroupVersionResource.String())
 		}
 		if nodeNameRegex, err = regexp.Compile(o.nodeNameRegex); err != nil {
 			return fmt.Errorf("invalid node name regex filter %q: %w", o.nodeNameRegex, err)
@@ -402,7 +412,8 @@ func (o *FindOptions) Validate() error {
 	var imagesRegex *regexp.Regexp
 	if o.imageRegex != "" {
 		if o.resourceType.GroupVersionResource != handlers.PodType {
-			return fmt.Errorf("image filtering is only supported for pods, but got %q", o.resourceType)
+			return fmt.Errorf("image filtering is only supported for pods, but got %q",
+				o.resourceType.GroupVersionResource.String())
 		}
 		if imagesRegex, err = regexp.Compile(o.imageRegex); err != nil {
 			return fmt.Errorf("invalid image regex filter %q: %w", o.imageRegex, err)
