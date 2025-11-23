@@ -1,3 +1,9 @@
+## v0.9.0 (2025-11-23)
+
+### Feat
+
+- support printing AdditionalPrinterColumns of CRD
+
 ## v0.8.0 (2025-10-30)
 
 ### Feat
