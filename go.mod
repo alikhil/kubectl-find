@@ -13,11 +13,11 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
-	k8s.io/api v0.35.0-beta.0
+	k8s.io/api v0.36.0-alpha.0
 	k8s.io/apiextensions-apiserver v0.34.2
-	k8s.io/apimachinery v0.35.0-beta.0
-	k8s.io/cli-runtime v0.35.0-beta.0
-	k8s.io/client-go v0.35.0-beta.0
+	k8s.io/apimachinery v0.36.0-alpha.0
+	k8s.io/cli-runtime v0.36.0-alpha.0
+	k8s.io/client-go v0.36.0-alpha.0
 )
 
 require (
