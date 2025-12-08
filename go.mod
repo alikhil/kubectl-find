@@ -9,7 +9,7 @@ godebug default=go1.25
 require (
 	github.com/itchyny/gojq v0.12.18
 	github.com/olekukonko/tablewriter v1.1.2
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
