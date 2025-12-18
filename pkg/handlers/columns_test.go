@@ -65,8 +65,6 @@ func toUnstructured(t *testing.T, obj runtime.Object) unstructured.Unstructured 
 }
 
 func Test_GetColumnsForDeployments(t *testing.T) {
-	t.Helper()
-
 	replicas := int32(3)
 	deployment := &appsv1.Deployment{
 		Spec: appsv1.DeploymentSpec{
@@ -93,8 +91,6 @@ func Test_GetColumnsForDeployments(t *testing.T) {
 }
 
 func Test_GetColumnsForStatefulSets(t *testing.T) {
-	t.Helper()
-
 	replicas := int32(4)
 	statefulSet := &appsv1.StatefulSet{
 		Spec: appsv1.StatefulSetSpec{
@@ -115,8 +111,6 @@ func Test_GetColumnsForStatefulSets(t *testing.T) {
 }
 
 func Test_GetColumnsForReplicaSets(t *testing.T) {
-	t.Helper()
-
 	replicas := int32(5)
 	replicaSet := &appsv1.ReplicaSet{
 		Spec: appsv1.ReplicaSetSpec{
@@ -142,8 +136,6 @@ func Test_GetColumnsForReplicaSets(t *testing.T) {
 }
 
 func Test_GetColumnsForDaemonSets(t *testing.T) {
-	t.Helper()
-
 	daemonSet := &appsv1.DaemonSet{
 		Status: appsv1.DaemonSetStatus{
 			DesiredNumberScheduled: 10,
