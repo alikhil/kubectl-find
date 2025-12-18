@@ -163,13 +163,45 @@ func replicasOrDefault(replicas *int32) int32 {
 	return *replicas
 }
 
+func toDeployment(obj unstructured.Unstructured) (*appsv1.Deployment, error) {
+	deployment := &appsv1.Deployment{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, deployment); err != nil {
+		return nil, err
+	}
+	return deployment, nil
+}
+
+func toStatefulSet(obj unstructured.Unstructured) (*appsv1.StatefulSet, error) {
+	statefulSet := &appsv1.StatefulSet{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, statefulSet); err != nil {
+		return nil, err
+	}
+	return statefulSet, nil
+}
+
+func toReplicaSet(obj unstructured.Unstructured) (*appsv1.ReplicaSet, error) {
+	replicaSet := &appsv1.ReplicaSet{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, replicaSet); err != nil {
+		return nil, err
+	}
+	return replicaSet, nil
+}
+
+func toDaemonSet(obj unstructured.Unstructured) (*appsv1.DaemonSet, error) {
+	daemonSet := &appsv1.DaemonSet{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, daemonSet); err != nil {
+		return nil, err
+	}
+	return daemonSet, nil
+}
+
 func getColumnsForDeployments() []printers.Column {
 	return []printers.Column{
 		{
 			Header: "READY",
 			Value: func(obj unstructured.Unstructured) string {
-				deployment := &appsv1.Deployment{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, deployment); err != nil {
+				deployment, err := toDeployment(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf(
@@ -182,8 +214,8 @@ func getColumnsForDeployments() []printers.Column {
 		{
 			Header: "UP-TO-DATE",
 			Value: func(obj unstructured.Unstructured) string {
-				deployment := &appsv1.Deployment{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, deployment); err != nil {
+				deployment, err := toDeployment(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf("%d", deployment.Status.UpdatedReplicas)
@@ -192,8 +224,8 @@ func getColumnsForDeployments() []printers.Column {
 		{
 			Header: "AVAILABLE",
 			Value: func(obj unstructured.Unstructured) string {
-				deployment := &appsv1.Deployment{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, deployment); err != nil {
+				deployment, err := toDeployment(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf("%d", deployment.Status.AvailableReplicas)
@@ -207,8 +239,8 @@ func getColumnsForStatefulSets() []printers.Column {
 		{
 			Header: "READY",
 			Value: func(obj unstructured.Unstructured) string {
-				statefulSet := &appsv1.StatefulSet{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, statefulSet); err != nil {
+				statefulSet, err := toStatefulSet(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf(
@@ -226,8 +258,8 @@ func getColumnsForReplicaSets() []printers.Column {
 		{
 			Header: "DESIRED",
 			Value: func(obj unstructured.Unstructured) string {
-				replicaSet := &appsv1.ReplicaSet{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, replicaSet); err != nil {
+				replicaSet, err := toReplicaSet(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf("%d", replicasOrDefault(replicaSet.Spec.Replicas))
@@ -236,8 +268,8 @@ func getColumnsForReplicaSets() []printers.Column {
 		{
 			Header: "CURRENT",
 			Value: func(obj unstructured.Unstructured) string {
-				replicaSet := &appsv1.ReplicaSet{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, replicaSet); err != nil {
+				replicaSet, err := toReplicaSet(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf("%d", replicaSet.Status.Replicas)
@@ -246,8 +278,8 @@ func getColumnsForReplicaSets() []printers.Column {
 		{
 			Header: "READY",
 			Value: func(obj unstructured.Unstructured) string {
-				replicaSet := &appsv1.ReplicaSet{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, replicaSet); err != nil {
+				replicaSet, err := toReplicaSet(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf("%d", replicaSet.Status.ReadyReplicas)
@@ -261,8 +293,8 @@ func getColumnsForDaemonSets() []printers.Column {
 		{
 			Header: "DESIRED",
 			Value: func(obj unstructured.Unstructured) string {
-				daemonSet := &appsv1.DaemonSet{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, daemonSet); err != nil {
+				daemonSet, err := toDaemonSet(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf("%d", daemonSet.Status.DesiredNumberScheduled)
@@ -271,8 +303,8 @@ func getColumnsForDaemonSets() []printers.Column {
 		{
 			Header: "CURRENT",
 			Value: func(obj unstructured.Unstructured) string {
-				daemonSet := &appsv1.DaemonSet{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, daemonSet); err != nil {
+				daemonSet, err := toDaemonSet(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf("%d", daemonSet.Status.CurrentNumberScheduled)
@@ -281,8 +313,8 @@ func getColumnsForDaemonSets() []printers.Column {
 		{
 			Header: "READY",
 			Value: func(obj unstructured.Unstructured) string {
-				daemonSet := &appsv1.DaemonSet{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, daemonSet); err != nil {
+				daemonSet, err := toDaemonSet(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf("%d", daemonSet.Status.NumberReady)
@@ -291,8 +323,8 @@ func getColumnsForDaemonSets() []printers.Column {
 		{
 			Header: "UP-TO-DATE",
 			Value: func(obj unstructured.Unstructured) string {
-				daemonSet := &appsv1.DaemonSet{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, daemonSet); err != nil {
+				daemonSet, err := toDaemonSet(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf("%d", daemonSet.Status.UpdatedNumberScheduled)
@@ -301,8 +333,8 @@ func getColumnsForDaemonSets() []printers.Column {
 		{
 			Header: "AVAILABLE",
 			Value: func(obj unstructured.Unstructured) string {
-				daemonSet := &appsv1.DaemonSet{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, daemonSet); err != nil {
+				daemonSet, err := toDaemonSet(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				return fmt.Sprintf("%d", daemonSet.Status.NumberAvailable)
