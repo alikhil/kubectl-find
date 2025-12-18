@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/alikhil/kubectl-find/pkg/printers"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,12 +156,175 @@ func getColumnsForServices(_ HandlerOptions) []printers.Column {
 	return columns
 }
 
+func replicasOrDefault(replicas *int32) int32 {
+	if replicas == nil {
+		return 1
+	}
+	return *replicas
+}
+
+func getColumnsForDeployments() []printers.Column {
+	return []printers.Column{
+		{
+			Header: "READY",
+			Value: func(obj unstructured.Unstructured) string {
+				deployment := &appsv1.Deployment{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, deployment); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf(
+					"%d/%d",
+					deployment.Status.ReadyReplicas,
+					replicasOrDefault(deployment.Spec.Replicas),
+				)
+			},
+		},
+		{
+			Header: "UP-TO-DATE",
+			Value: func(obj unstructured.Unstructured) string {
+				deployment := &appsv1.Deployment{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, deployment); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf("%d", deployment.Status.UpdatedReplicas)
+			},
+		},
+		{
+			Header: "AVAILABLE",
+			Value: func(obj unstructured.Unstructured) string {
+				deployment := &appsv1.Deployment{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, deployment); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf("%d", deployment.Status.AvailableReplicas)
+			},
+		},
+	}
+}
+
+func getColumnsForStatefulSets() []printers.Column {
+	return []printers.Column{
+		{
+			Header: "READY",
+			Value: func(obj unstructured.Unstructured) string {
+				statefulSet := &appsv1.StatefulSet{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, statefulSet); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf(
+					"%d/%d",
+					statefulSet.Status.ReadyReplicas,
+					replicasOrDefault(statefulSet.Spec.Replicas),
+				)
+			},
+		},
+	}
+}
+
+func getColumnsForReplicaSets() []printers.Column {
+	return []printers.Column{
+		{
+			Header: "DESIRED",
+			Value: func(obj unstructured.Unstructured) string {
+				replicaSet := &appsv1.ReplicaSet{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, replicaSet); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf("%d", replicasOrDefault(replicaSet.Spec.Replicas))
+			},
+		},
+		{
+			Header: "CURRENT",
+			Value: func(obj unstructured.Unstructured) string {
+				replicaSet := &appsv1.ReplicaSet{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, replicaSet); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf("%d", replicaSet.Status.Replicas)
+			},
+		},
+		{
+			Header: "READY",
+			Value: func(obj unstructured.Unstructured) string {
+				replicaSet := &appsv1.ReplicaSet{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, replicaSet); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf("%d", replicaSet.Status.ReadyReplicas)
+			},
+		},
+	}
+}
+
+func getColumnsForDaemonSets() []printers.Column {
+	return []printers.Column{
+		{
+			Header: "DESIRED",
+			Value: func(obj unstructured.Unstructured) string {
+				daemonSet := &appsv1.DaemonSet{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, daemonSet); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf("%d", daemonSet.Status.DesiredNumberScheduled)
+			},
+		},
+		{
+			Header: "CURRENT",
+			Value: func(obj unstructured.Unstructured) string {
+				daemonSet := &appsv1.DaemonSet{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, daemonSet); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf("%d", daemonSet.Status.CurrentNumberScheduled)
+			},
+		},
+		{
+			Header: "READY",
+			Value: func(obj unstructured.Unstructured) string {
+				daemonSet := &appsv1.DaemonSet{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, daemonSet); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf("%d", daemonSet.Status.NumberReady)
+			},
+		},
+		{
+			Header: "UP-TO-DATE",
+			Value: func(obj unstructured.Unstructured) string {
+				daemonSet := &appsv1.DaemonSet{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, daemonSet); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf("%d", daemonSet.Status.UpdatedNumberScheduled)
+			},
+		},
+		{
+			Header: "AVAILABLE",
+			Value: func(obj unstructured.Unstructured) string {
+				daemonSet := &appsv1.DaemonSet{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, daemonSet); err != nil {
+					return UnknownStr
+				}
+				return fmt.Sprintf("%d", daemonSet.Status.NumberAvailable)
+			},
+		},
+	}
+}
+
 func GetColumnsFor(opts HandlerOptions, resourceType Resource) []printers.Column {
 	switch resourceType.GroupVersionResource {
 	case PodType:
 		return getColumnsForPods(opts)
 	case ServiceType:
 		return getColumnsForServices(opts)
+	case DeploymentType:
+		return getColumnsForDeployments()
+	case StatefulSetType:
+		return getColumnsForStatefulSets()
+	case ReplicaSetType:
+		return getColumnsForReplicaSets()
+	case DaemonSetType:
+		return getColumnsForDaemonSets()
 	default:
 
 		if !isBuiltin(scheme.Scheme, resourceType.GroupVersionKind) {
