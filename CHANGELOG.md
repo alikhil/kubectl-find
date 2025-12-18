@@ -1,3 +1,9 @@
+## v0.10.0 (2025-12-18)
+
+### Feat
+
+- add annotations flag to display resource annotations (#21)
+
 ## v0.9.0 (2025-11-23)
 
 ### Feat
