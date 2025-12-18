@@ -20,6 +20,8 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 )
 
+const defaultReplicaCount = int32(1)
+
 func labelToColumnHeader(label string) string {
 	parts := strings.Split(label, "/")
 	//nolint:mnd // common case to have prefix with slash
@@ -156,7 +158,7 @@ func getColumnsForServices(_ HandlerOptions) []printers.Column {
 	return columns
 }
 
-func replicasOrDefault(replicas *int32, defaultValue int32) int32 {
+func getReplicaCountOrDefault(replicas *int32, defaultValue int32) int32 {
 	if replicas == nil {
 		return defaultValue
 	}
@@ -207,7 +209,7 @@ func getColumnsForDeployments() []printers.Column {
 				return fmt.Sprintf(
 					"%d/%d",
 					deployment.Status.ReadyReplicas,
-					replicasOrDefault(deployment.Spec.Replicas, 1),
+					getReplicaCountOrDefault(deployment.Spec.Replicas, defaultReplicaCount),
 				)
 			},
 		},
@@ -246,7 +248,7 @@ func getColumnsForStatefulSets() []printers.Column {
 				return fmt.Sprintf(
 					"%d/%d",
 					statefulSet.Status.ReadyReplicas,
-					replicasOrDefault(statefulSet.Spec.Replicas, 1),
+					getReplicaCountOrDefault(statefulSet.Spec.Replicas, defaultReplicaCount),
 				)
 			},
 		},
@@ -262,7 +264,7 @@ func getColumnsForReplicaSets() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", replicasOrDefault(replicaSet.Spec.Replicas, 1))
+				return fmt.Sprintf("%d", getReplicaCountOrDefault(replicaSet.Spec.Replicas, defaultReplicaCount))
 			},
 		},
 		{
