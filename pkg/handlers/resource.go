@@ -75,6 +75,7 @@ type HandlerOptions struct {
 	withImages     bool
 	labels         []string
 	nodeLabels     []string
+	annotations    []string
 }
 
 func NewHandlerOptions() HandlerOptions {
@@ -121,6 +122,11 @@ func (o HandlerOptions) WithNodeLabels(withNodeLabels []string) HandlerOptions {
 	return o
 }
 
+func (o HandlerOptions) WithAnnotations(withAnnotations []string) HandlerOptions {
+	o.annotations = withAnnotations
+	return o
+}
+
 func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler, error) {
 	switch resource.GroupVersionResource {
 	case PodType:
@@ -130,6 +136,7 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 				ShowNamespace:     opts.allNamespaces,
 				AdditionalColumns: GetColumnsFor(opts, resource),
 				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
+				AnnotationColumns: GetAnnotationColumns(opts),
 			}),
 			executorGetter: opts.executorGetter,
 		}, nil
@@ -141,6 +148,7 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 				ShowNamespace:     resource.IsNamespaced && opts.allNamespaces,
 				AdditionalColumns: GetColumnsFor(opts, resource),
 				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
+				AnnotationColumns: GetAnnotationColumns(opts),
 			}),
 			Resource: resource,
 		}), nil
@@ -158,6 +166,7 @@ type ActionOptions struct {
 	ResourceType  Resource    // type of resource being handled
 	JQQuery       *gojq.Query // field selector to filter resources
 	ShowLabels    []string    // list of labels to show in output
+	ShowAnnotations []string  // list of annotations to show in output
 	NaturalSort   bool        // sort resource names in natural order
 
 	// Pod related options

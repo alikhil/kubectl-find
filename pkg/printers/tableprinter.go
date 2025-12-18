@@ -16,6 +16,7 @@ type TablePrinterOptions struct {
 	ShowNamespace     bool
 	AdditionalColumns []Column // additional columns to add to the table after NAME
 	LabelColumns      []Column // additional columns to add to the table after AGE
+	AnnotationColumns []Column // additional columns to add to the table after LabelColumns
 }
 
 type TablePrinter struct {
@@ -105,6 +106,7 @@ func (p *TablePrinter) PrintObjects(objects []unstructured.Unstructured, out io.
 	})
 
 	columns = append(columns, p.options.LabelColumns...)
+	columns = append(columns, p.options.AnnotationColumns...)
 
 	headers := make([]string, len(columns))
 	for i := range columns {

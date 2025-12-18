@@ -360,3 +360,21 @@ func GetLabelColumns(opts HandlerOptions, res schema.GroupVersionResource) []pri
 	}
 	return columns
 }
+
+func GetAnnotationColumns(opts HandlerOptions) []printers.Column {
+	columns := []printers.Column{}
+	if len(opts.annotations) > 0 {
+		for _, annotationKey := range opts.annotations {
+			columns = append(columns, printers.Column{
+				Header: labelToColumnHeader(annotationKey),
+				Value: func(obj unstructured.Unstructured) string {
+					if annotationValue, found, _ := unstructured.NestedString(obj.Object, "metadata", "annotations", annotationKey); found {
+						return annotationValue
+					}
+					return NoneStr
+				},
+			})
+		}
+	}
+	return columns
+}
