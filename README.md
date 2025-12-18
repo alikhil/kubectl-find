@@ -37,6 +37,7 @@ Flags:
       --min-age string                 Filter resources by minimum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.
       --node string                    Filter pods by node name regex; Uses pod.Spec.NodeName or pod.Status.NominatedNodeName if the former is empty.
   -L, --labels strings                 Comma-separated list of labels to show.
+  -T, --annotations strings            Comma-separated list of annotations to show.
   -N, --node-labels strings            Comma-separated list of node labels to show.
       --natural-sort                   Sort resource names in natural order.
   -h, --help                           help for kubectl find
@@ -146,6 +147,17 @@ redis-redis-ha-server-0                           Running   11h    nodeee-short-
 super-admin-server-65d57f8787-5c9sd               Running   11h    nodeee-short-2   eu-central1-b
 ok-web-app-nginx-5c78887cbf-2n8fw                 Running   11h    nodeee-short-2   eu-central1-b
 zipkin-ok-shop-zipkin-5d94fcdc67-r8pcx            Running   10d    nodeee-long-1    eu-central1-b
+```
+
+#### Show resource annotations
+
+```shell
+k fd -T example.com/owner
+NAME                                              STATUS    AGE    OWNER
+admin-backend-server-6fb6bbb8f6-2xntp             Running   7h4m   team-a
+admin-frontend-nginx-b8c88b7b4-pxx2x              Running   3h7m   team-b
+top-react-ok-app-develop-nginx-586c65496f-h4b9p   Running   11h    team-a
+nginx                                             Running   18d    <none>
 ```
 
 #### Natural sort
