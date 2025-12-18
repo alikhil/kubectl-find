@@ -158,9 +158,9 @@ func getColumnsForServices(_ HandlerOptions) []printers.Column {
 	return columns
 }
 
-func getReplicaCountOrDefault(replicas *int32, defaultValue int32) int32 {
+func getReplicaCountOrDefault(replicas *int32) int32 {
 	if replicas == nil {
-		return defaultValue
+		return defaultReplicaCount
 	}
 	return *replicas
 }
@@ -209,7 +209,7 @@ func getColumnsForDeployments() []printers.Column {
 				return fmt.Sprintf(
 					"%d/%d",
 					deployment.Status.ReadyReplicas,
-					getReplicaCountOrDefault(deployment.Spec.Replicas, defaultReplicaCount),
+					getReplicaCountOrDefault(deployment.Spec.Replicas),
 				)
 			},
 		},
@@ -248,7 +248,7 @@ func getColumnsForStatefulSets() []printers.Column {
 				return fmt.Sprintf(
 					"%d/%d",
 					statefulSet.Status.ReadyReplicas,
-					getReplicaCountOrDefault(statefulSet.Spec.Replicas, defaultReplicaCount),
+					getReplicaCountOrDefault(statefulSet.Spec.Replicas),
 				)
 			},
 		},
@@ -264,7 +264,7 @@ func getColumnsForReplicaSets() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", getReplicaCountOrDefault(replicaSet.Spec.Replicas, defaultReplicaCount))
+				return fmt.Sprintf("%d", getReplicaCountOrDefault(replicaSet.Spec.Replicas))
 			},
 		},
 		{
