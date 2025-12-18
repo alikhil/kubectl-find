@@ -92,8 +92,9 @@ type FindOptions struct {
 	jqFilter      string
 	naturalSort   bool
 
-	showNodeLabels []string
-	showLabels     []string
+	showNodeLabels  []string
+	showLabels      []string
+	showAnnotations []string
 
 	args []string
 
@@ -170,6 +171,8 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 		StringSliceVarP(&o.showNodeLabels, "node-labels", "N", nil, "Comma-separated list of node labels to show.")
 	cmd.Flags().
 		StringSliceVarP(&o.showLabels, "labels", "L", nil, "Comma-separated list of labels to show.")
+	cmd.Flags().
+		StringSliceVarP(&o.showAnnotations, "annotations", "T", nil, "Comma-separated list of annotations to show.")
 	cmd.Flags().
 		BoolVar(&o.naturalSort, "natural-sort", false, "Sort resource names in natural order.")
 
@@ -321,6 +324,7 @@ func (o *FindOptions) Validate() error {
 			WithImages(o.imageRegex != "").
 			WithLabels(o.showLabels).
 			WithNodeLabels(o.showNodeLabels).
+			WithAnnotations(o.showAnnotations).
 			WithExecutorGetter(func(method string, url *url.URL) (remotecommand.Executor, error) {
 				return remotecommand.NewSPDYExecutor(
 					o.rest,
@@ -431,25 +435,26 @@ func (o *FindOptions) Validate() error {
 	}
 
 	o.options = handlers.ActionOptions{
-		Namespace:      o.userSpecifiedNamespace,
-		Action:         action,
-		NameRegex:      reg,
-		MaxAge:         maxAge,
-		MinAge:         minAge,
-		LabelSelector:  o.labelSelector, // todo: add validation for label selector
-		Streams:        &o.IOStreams,
-		JQQuery:        jqQuery,
-		NodeNameRegex:  nodeNameRegex,
-		SkipConfirm:    o.skipConfirm,
-		PodStatus:      handlers.ToPodPhase(o.podStatus),
-		Exec:           o.exec,
-		Patch:          o.patch,
-		ResourceType:   o.resourceType,
-		Restarted:      o.restarted,
-		ImageRegex:     imagesRegex,
-		ShowNodeLabels: o.showNodeLabels,
-		ShowLabels:     o.showLabels,
-		NaturalSort:    o.naturalSort,
+		Namespace:       o.userSpecifiedNamespace,
+		Action:          action,
+		NameRegex:       reg,
+		MaxAge:          maxAge,
+		MinAge:          minAge,
+		LabelSelector:   o.labelSelector, // todo: add validation for label selector
+		Streams:         &o.IOStreams,
+		JQQuery:         jqQuery,
+		NodeNameRegex:   nodeNameRegex,
+		SkipConfirm:     o.skipConfirm,
+		PodStatus:       handlers.ToPodPhase(o.podStatus),
+		Exec:            o.exec,
+		Patch:           o.patch,
+		ResourceType:    o.resourceType,
+		Restarted:       o.restarted,
+		ImageRegex:      imagesRegex,
+		ShowNodeLabels:  o.showNodeLabels,
+		ShowLabels:      o.showLabels,
+		ShowAnnotations: o.showAnnotations,
+		NaturalSort:     o.naturalSort,
 	}
 
 	return nil
