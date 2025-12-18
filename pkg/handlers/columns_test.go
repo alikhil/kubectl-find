@@ -127,9 +127,9 @@ func Test_GetAnnotationColumns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Helper()
 			columns := GetAnnotationColumns(tt.opts)
-			
-			require.Equal(t, len(tt.wantHeaders), len(columns), "Number of columns should match")
-			
+
+			require.Len(t, columns, len(tt.wantHeaders), "Number of columns should match")
+
 			for i, col := range columns {
 				require.Equal(t, tt.wantHeaders[i], col.Header, "Column header should match")
 				require.Equal(t, tt.wantValues[i], col.Value(tt.obj), "Column value should match")
@@ -137,4 +137,3 @@ func Test_GetAnnotationColumns(t *testing.T) {
 		})
 	}
 }
-

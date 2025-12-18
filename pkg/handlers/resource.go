@@ -156,18 +156,18 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 }
 
 type ActionOptions struct {
-	Namespace     string
-	LabelSelector string
-	Action        Action
-	NameRegex     *regexp.Regexp
-	MinAge        time.Duration
-	MaxAge        time.Duration
-	SkipConfirm   bool        // skip confirmation prompt before performing actions
-	ResourceType  Resource    // type of resource being handled
-	JQQuery       *gojq.Query // field selector to filter resources
-	ShowLabels    []string    // list of labels to show in output
-	ShowAnnotations []string  // list of annotations to show in output
-	NaturalSort   bool        // sort resource names in natural order
+	Namespace       string
+	LabelSelector   string
+	Action          Action
+	NameRegex       *regexp.Regexp
+	MinAge          time.Duration
+	MaxAge          time.Duration
+	SkipConfirm     bool        // skip confirmation prompt before performing actions
+	ResourceType    Resource    // type of resource being handled
+	JQQuery         *gojq.Query // field selector to filter resources
+	ShowLabels      []string    // list of labels to show in output
+	ShowAnnotations []string    // list of annotations to show in output
+	NaturalSort     bool        // sort resource names in natural order
 
 	// Pod related options
 	PodStatus      v1.PodPhase // only for pods, e.g. "Running", "Pending", etc.
