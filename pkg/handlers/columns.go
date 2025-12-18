@@ -322,10 +322,11 @@ func GetLabelColumns(opts HandlerOptions, res schema.GroupVersionResource) []pri
 	columns := []printers.Column{}
 	if len(opts.labels) > 0 {
 		for _, labelKey := range opts.labels {
+			key := labelKey // capture loop variable
 			columns = append(columns, printers.Column{
-				Header: labelToColumnHeader(labelKey),
+				Header: labelToColumnHeader(key),
 				Value: func(obj unstructured.Unstructured) string {
-					if labelValue, found, _ := unstructured.NestedString(obj.Object, "metadata", "labels", labelKey); found {
+					if labelValue, found, _ := unstructured.NestedString(obj.Object, "metadata", "labels", key); found {
 						return labelValue
 					}
 					return NoneStr
@@ -345,15 +346,16 @@ func GetLabelColumns(opts HandlerOptions, res schema.GroupVersionResource) []pri
 		})
 
 		for _, labelKey := range opts.nodeLabels {
+			key := labelKey // capture loop variable
 			cacheFunc := getCacheFunc(opts.clientSet)
 			columns = append(columns, printers.Column{
-				Header: labelToColumnHeader(labelKey),
+				Header: labelToColumnHeader(key),
 				Value: func(obj unstructured.Unstructured) string {
 					nodeName, found, _ := unstructured.NestedString(obj.Object, "spec", "nodeName")
 					if !found {
 						return UnknownStr
 					}
-					return cacheFunc(nodeName, labelKey)
+					return cacheFunc(nodeName, key)
 				},
 			})
 		}
@@ -365,10 +367,11 @@ func GetAnnotationColumns(opts HandlerOptions) []printers.Column {
 	columns := []printers.Column{}
 	if len(opts.annotations) > 0 {
 		for _, annotationKey := range opts.annotations {
+			key := annotationKey // capture loop variable
 			columns = append(columns, printers.Column{
-				Header: labelToColumnHeader(annotationKey),
+				Header: labelToColumnHeader(key),
 				Value: func(obj unstructured.Unstructured) string {
-					if annotationValue, found, _ := unstructured.NestedString(obj.Object, "metadata", "annotations", annotationKey); found {
+					if annotationValue, found, _ := unstructured.NestedString(obj.Object, "metadata", "annotations", key); found {
 						return annotationValue
 					}
 					return NoneStr
