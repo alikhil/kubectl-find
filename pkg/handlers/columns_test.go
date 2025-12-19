@@ -64,6 +64,36 @@ func toUnstructured(t *testing.T, obj runtime.Object) unstructured.Unstructured 
 	return unstructured.Unstructured{Object: raw}
 }
 
+func Test_GetColumnsForPods_MatchesKubectlGet(t *testing.T) {
+	pod := &v1.Pod{
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{Name: "c1"},
+				{Name: "c2"},
+			},
+		},
+		Status: v1.PodStatus{
+			Phase: v1.PodRunning,
+			ContainerStatuses: []v1.ContainerStatus{
+				{Ready: true, RestartCount: 2},
+				{Ready: false, RestartCount: 1},
+			},
+		},
+	}
+
+	columns := GetColumnsFor(HandlerOptions{}, Resource{GroupVersionResource: PodType})
+	require.Len(t, columns, 3)
+
+	obj := toUnstructured(t, pod)
+
+	require.Equal(t, "READY", columns[0].Header)
+	require.Equal(t, "1/2", columns[0].Value(obj))
+	require.Equal(t, "STATUS", columns[1].Header)
+	require.Equal(t, "Running", columns[1].Value(obj))
+	require.Equal(t, "RESTARTS", columns[2].Header)
+	require.Equal(t, "3", columns[2].Value(obj))
+}
+
 func Test_GetColumnsForDeployments(t *testing.T) {
 	replicas := int32(3)
 	deployment := &appsv1.Deployment{

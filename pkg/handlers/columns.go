@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/alikhil/kubectl-find/pkg/printers"
 	appsv1 "k8s.io/api/apps/v1"
@@ -14,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/jsonpath"
@@ -34,6 +32,23 @@ func labelToColumnHeader(label string) string {
 func getColumnsForPods(opts HandlerOptions) []printers.Column {
 	columns := []printers.Column{
 		{
+			Header: "READY",
+			Value: func(obj unstructured.Unstructured) string {
+				pod, err := toPod(obj)
+				if err != nil {
+					return UnknownStr
+				}
+				totalContainers := len(pod.Spec.Containers)
+				readyContainers := 0
+				for _, cs := range pod.Status.ContainerStatuses {
+					if cs.Ready {
+						readyContainers++
+					}
+				}
+				return fmt.Sprintf("%d/%d", readyContainers, totalContainers)
+			},
+		},
+		{
 			Header: "STATUS",
 			Value: func(obj unstructured.Unstructured) string {
 				if status, found, _ := unstructured.NestedString(obj.Object, "status", "phase"); found {
@@ -42,38 +57,27 @@ func getColumnsForPods(opts HandlerOptions) []printers.Column {
 				return UnknownStr
 			},
 		},
-	}
-	if opts.restarted {
-		columns = append(columns, printers.Column{
+		{
 			Header: "RESTARTS",
 			Value: func(obj unstructured.Unstructured) string {
-				pod := &v1.Pod{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, pod); err != nil {
+				pod, err := toPod(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				totalRestarts := 0
-				lastRestart := time.Time{}
 				for _, cs := range pod.Status.ContainerStatuses {
 					totalRestarts += int(cs.RestartCount)
-					if cs.RestartCount > 0 &&
-						lastRestart.Before(cs.LastTerminationState.Terminated.FinishedAt.Time) {
-						lastRestart = cs.LastTerminationState.Terminated.FinishedAt.Time
-					}
 				}
-				return fmt.Sprintf(
-					"%d (%s ago)",
-					totalRestarts,
-					duration.HumanDuration(time.Since(lastRestart)),
-				)
+				return fmt.Sprintf("%d", totalRestarts)
 			},
-		})
+		},
 	}
 	if opts.withImages {
 		columns = append(columns, printers.Column{
 			Header: "IMAGES",
 			Value: func(obj unstructured.Unstructured) string {
-				pod := &v1.Pod{}
-				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, pod); err != nil {
+				pod, err := toPod(obj)
+				if err != nil {
 					return UnknownStr
 				}
 				var images []string
@@ -163,6 +167,14 @@ func getReplicaCountOrDefault(replicas *int32) int32 {
 		return defaultReplicaCount
 	}
 	return *replicas
+}
+
+func toPod(obj unstructured.Unstructured) (*v1.Pod, error) {
+	pod := &v1.Pod{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, pod); err != nil {
+		return nil, err
+	}
+	return pod, nil
 }
 
 func toDeployment(obj unstructured.Unstructured) (*appsv1.Deployment, error) {
