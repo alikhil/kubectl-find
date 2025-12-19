@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/alikhil/kubectl-find/pkg/printers"
@@ -68,7 +69,7 @@ func getColumnsForPods(opts HandlerOptions) []printers.Column {
 				for _, cs := range pod.Status.ContainerStatuses {
 					totalRestarts += int(cs.RestartCount)
 				}
-				return fmt.Sprintf("%d", totalRestarts)
+				return strconv.Itoa(totalRestarts)
 			},
 		},
 	}
@@ -232,7 +233,7 @@ func getColumnsForDeployments() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", deployment.Status.UpdatedReplicas)
+				return strconv.FormatInt(int64(deployment.Status.UpdatedReplicas), 10)
 			},
 		},
 		{
@@ -242,7 +243,7 @@ func getColumnsForDeployments() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", deployment.Status.AvailableReplicas)
+				return strconv.FormatInt(int64(deployment.Status.AvailableReplicas), 10)
 			},
 		},
 	}
@@ -276,7 +277,7 @@ func getColumnsForReplicaSets() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", getReplicaCountOrDefault(replicaSet.Spec.Replicas))
+				return strconv.FormatInt(int64(getReplicaCountOrDefault(replicaSet.Spec.Replicas)), 10)
 			},
 		},
 		{
@@ -286,7 +287,7 @@ func getColumnsForReplicaSets() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", replicaSet.Status.Replicas)
+				return strconv.FormatInt(int64(replicaSet.Status.Replicas), 10)
 			},
 		},
 		{
@@ -296,7 +297,7 @@ func getColumnsForReplicaSets() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", replicaSet.Status.ReadyReplicas)
+				return strconv.FormatInt(int64(replicaSet.Status.ReadyReplicas), 10)
 			},
 		},
 	}
@@ -311,7 +312,7 @@ func getColumnsForDaemonSets() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", daemonSet.Status.DesiredNumberScheduled)
+				return strconv.FormatInt(int64(daemonSet.Status.DesiredNumberScheduled), 10)
 			},
 		},
 		{
@@ -321,7 +322,7 @@ func getColumnsForDaemonSets() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", daemonSet.Status.CurrentNumberScheduled)
+				return strconv.FormatInt(int64(daemonSet.Status.CurrentNumberScheduled), 10)
 			},
 		},
 		{
@@ -331,7 +332,7 @@ func getColumnsForDaemonSets() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", daemonSet.Status.NumberReady)
+				return strconv.FormatInt(int64(daemonSet.Status.NumberReady), 10)
 			},
 		},
 		{
@@ -341,7 +342,7 @@ func getColumnsForDaemonSets() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", daemonSet.Status.UpdatedNumberScheduled)
+				return strconv.FormatInt(int64(daemonSet.Status.UpdatedNumberScheduled), 10)
 			},
 		},
 		{
@@ -351,7 +352,7 @@ func getColumnsForDaemonSets() []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				return fmt.Sprintf("%d", daemonSet.Status.NumberAvailable)
+				return strconv.FormatInt(int64(daemonSet.Status.NumberAvailable), 10)
 			},
 		},
 	}
