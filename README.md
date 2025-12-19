@@ -122,42 +122,42 @@ kubectl fd --restarted
 
 ```shell
 k fd -L app.kubernetes.io/component
-NAME                                              STATUS    AGE    COMPONENT
-admin-backend-server-6fb6bbb8f6-2xntp             Running   7h4m   deployments-server
-admin-frontend-nginx-b8c88b7b4-pxx2x              Running   3h7m   deployments-nginx
-top-react-ok-app-develop-nginx-586c65496f-h4b9p   Running   11h    deployments-nginx
-top-react-ok-app-stage-nginx-8595cbfb6c-qzt2z     Running   11h    deployments-nginx
-nginx                                             Running   18d    <none>
-redis-redis-ha-server-0                           Running   11h    <none>
-super-admin-server-65d57f8787-5c9sd               Running   11h    deployments-server
-ok-web-app-nginx-5c78887cbf-2n8fw                 Running   11h    deployments-nginx
+NAME                                              READY   STATUS    RESTARTS   AGE    COMPONENT
+admin-backend-server-6fb6bbb8f6-2xntp             1/1     Running   0          7h4m   deployments-server
+admin-frontend-nginx-b8c88b7b4-pxx2x              1/1     Running   0          3h7m   deployments-nginx
+top-react-ok-app-develop-nginx-586c65496f-h4b9p   1/1     Running   0          11h    deployments-nginx
+top-react-ok-app-stage-nginx-8595cbfb6c-qzt2z     1/1     Running   0          11h    deployments-nginx
+nginx                                             1/1     Running   0          18d    <none>
+redis-redis-ha-server-0                           1/1     Running   0          11h    <none>
+super-admin-server-65d57f8787-5c9sd               1/1     Running   0          11h    deployments-server
+ok-web-app-nginx-5c78887cbf-2n8fw                 1/1     Running   0          11h    deployments-nginx
 ```
 
 #### Show node labels of the pods
 
 ```shell
 k fd -N topology.kubernetes.io/zone
-NAME                                              STATUS    AGE    NODE             ZONE
-admin-backend-server-6fb6bbb8f6-2xntp             Running   7h5m   nodeee-short-2   eu-central1-b
-admin-frontend-nginx-b8c88b7b4-pxx2x              Running   3h8m   nodeee-short-2   eu-central1-b
-top-react-ok-app-develop-nginx-586c65496f-h4b9p   Running   11h    nodeee-short-2   eu-central1-b
-top-react-ok-app-stage-nginx-8595cbfb6c-qzt2z     Running   11h    nodeee-short-2   eu-central1-b
-nginx                                             Running   18d    nodeee-long-3    eu-central1-b
-redis-redis-ha-server-0                           Running   11h    nodeee-short-2   eu-central1-b
-super-admin-server-65d57f8787-5c9sd               Running   11h    nodeee-short-2   eu-central1-b
-ok-web-app-nginx-5c78887cbf-2n8fw                 Running   11h    nodeee-short-2   eu-central1-b
-zipkin-ok-shop-zipkin-5d94fcdc67-r8pcx            Running   10d    nodeee-long-1    eu-central1-b
+NAME                                              READY   STATUS    RESTARTS   AGE    NODE             ZONE
+admin-backend-server-6fb6bbb8f6-2xntp             1/1     Running   0          7h5m   nodeee-short-2   eu-central1-b
+admin-frontend-nginx-b8c88b7b4-pxx2x              1/1     Running   0          3h8m   nodeee-short-2   eu-central1-b
+top-react-ok-app-develop-nginx-586c65496f-h4b9p   1/1     Running   0          11h    nodeee-short-2   eu-central1-b
+top-react-ok-app-stage-nginx-8595cbfb6c-qzt2z     1/1     Running   0          11h    nodeee-short-2   eu-central1-b
+nginx                                             1/1     Running   0          18d    nodeee-long-3    eu-central1-b
+redis-redis-ha-server-0                           1/1     Running   0          11h    nodeee-short-2   eu-central1-b
+super-admin-server-65d57f8787-5c9sd               1/1     Running   0          11h    nodeee-short-2   eu-central1-b
+ok-web-app-nginx-5c78887cbf-2n8fw                 1/1     Running   0          11h    nodeee-short-2   eu-central1-b
+zipkin-ok-shop-zipkin-5d94fcdc67-r8pcx            1/1     Running   0          10d    nodeee-long-1    eu-central1-b
 ```
 
 #### Show resource annotations
 
 ```shell
 k fd -T example.com/owner
-NAME                                              STATUS    AGE    OWNER
-admin-backend-server-6fb6bbb8f6-2xntp             Running   7h4m   team-a
-admin-frontend-nginx-b8c88b7b4-pxx2x              Running   3h7m   team-b
-top-react-ok-app-develop-nginx-586c65496f-h4b9p   Running   11h    team-a
-nginx                                             Running   18d    <none>
+NAME                                              READY   STATUS    RESTARTS   AGE    OWNER
+admin-backend-server-6fb6bbb8f6-2xntp             1/1     Running   0          7h4m   team-a
+admin-frontend-nginx-b8c88b7b4-pxx2x              1/1     Running   0          3h7m   team-b
+top-react-ok-app-develop-nginx-586c65496f-h4b9p   1/1     Running   0          11h    team-a
+nginx                                             1/1     Running   0          18d    <none>
 ```
 
 #### Natural sort
@@ -166,44 +166,44 @@ Normal sort
 
 ```shell
 kubectl fd
-NAME       STATUS    AGE
-nginx-0    Running   5m14s
-nginx-1    Running   5m12s
-nginx-10   Running   4m53s
-nginx-11   Running   4m50s
-nginx-12   Running   4m48s
-nginx-13   Running   4m46s
-nginx-14   Running   4m44s
-nginx-2    Running   5m10s
-nginx-3    Running   5m7s
-nginx-4    Running   5m5s
-nginx-5    Running   5m3s
-nginx-6    Running   5m1s
-nginx-7    Running   4m59s
-nginx-8    Running   4m57s
-nginx-9    Running   4m55s
+NAME       READY   STATUS    RESTARTS   AGE
+nginx-0    1/1     Running   0          5m14s
+nginx-1    1/1     Running   0          5m12s
+nginx-10   1/1     Running   0          4m53s
+nginx-11   1/1     Running   0          4m50s
+nginx-12   1/1     Running   0          4m48s
+nginx-13   1/1     Running   0          4m46s
+nginx-14   1/1     Running   0          4m44s
+nginx-2    1/1     Running   0          5m10s
+nginx-3    1/1     Running   0          5m7s
+nginx-4    1/1     Running   0          5m5s
+nginx-5    1/1     Running   0          5m3s
+nginx-6    1/1     Running   0          5m1s
+nginx-7    1/1     Running   0          4m59s
+nginx-8    1/1     Running   0          4m57s
+nginx-9    1/1     Running   0          4m55s
 ```
 
 Natural sort
 
 ```shell
 kubectl fd --natural-sort
-NAME       STATUS    AGE
-nginx-0    Running   6m6s
-nginx-1    Running   6m4s
-nginx-2    Running   6m2s
-nginx-3    Running   5m59s
-nginx-4    Running   5m57s
-nginx-5    Running   5m55s
-nginx-6    Running   5m53s
-nginx-7    Running   5m51s
-nginx-8    Running   5m49s
-nginx-9    Running   5m47s
-nginx-10   Running   5m45s
-nginx-11   Running   5m42s
-nginx-12   Running   5m40s
-nginx-13   Running   5m38s
-nginx-14   Running   5m36s
+NAME       READY   STATUS    RESTARTS   AGE
+nginx-0    1/1     Running   0          6m6s
+nginx-1    1/1     Running   0          6m4s
+nginx-2    1/1     Running   0          6m2s
+nginx-3    1/1     Running   0          5m59s
+nginx-4    1/1     Running   0          5m57s
+nginx-5    1/1     Running   0          5m55s
+nginx-6    1/1     Running   0          5m53s
+nginx-7    1/1     Running   0          5m51s
+nginx-8    1/1     Running   0          5m49s
+nginx-9    1/1     Running   0          5m47s
+nginx-10   1/1     Running   0          5m45s
+nginx-11   1/1     Running   0          5m42s
+nginx-12   1/1     Running   0          5m40s
+nginx-13   1/1     Running   0          5m38s
+nginx-14   1/1     Running   0          5m36s
 ```
 
 ## Completion
