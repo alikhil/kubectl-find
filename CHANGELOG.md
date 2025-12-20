@@ -1,3 +1,9 @@
+## v0.11.0 (2025-12-20)
+
+### Feat
+
+- align resource table output with kubectl get replica/status columns (#22)
+
 ## v0.10.0 (2025-12-18)
 
 ### Feat
