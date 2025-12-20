@@ -37,6 +37,34 @@ var ServiceType = schema.GroupVersionResource{
 	Version:  "v1",
 }
 
+//nolint:gochecknoglobals
+var DeploymentType = schema.GroupVersionResource{
+	Resource: "deployments",
+	Group:    "apps",
+	Version:  "v1",
+}
+
+//nolint:gochecknoglobals
+var StatefulSetType = schema.GroupVersionResource{
+	Resource: "statefulsets",
+	Group:    "apps",
+	Version:  "v1",
+}
+
+//nolint:gochecknoglobals
+var ReplicaSetType = schema.GroupVersionResource{
+	Resource: "replicasets",
+	Group:    "apps",
+	Version:  "v1",
+}
+
+//nolint:gochecknoglobals
+var DaemonSetType = schema.GroupVersionResource{
+	Resource: "daemonsets",
+	Group:    "apps",
+	Version:  "v1",
+}
+
 type Action int
 
 const (
