@@ -1,3 +1,9 @@
+## v0.12.0 (2026-02-24)
+
+### Feat
+
+- rename --force to --skip-confirm, add --force for graceful deletion bypass (#29)
+
 ## v0.11.0 (2025-12-20)
 
 ### Feat
