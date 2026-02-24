@@ -486,6 +486,45 @@ func TestPodsHandler(t *testing.T) {
 			},
 		},
 		{
+			name: "Force delete matching pods skips graceful deletion",
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
+				s.in.Write([]byte("y\n"))
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Namespace: "default",
+					Action:    ActionDelete,
+					Force:     true,
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-pod",
+							Namespace: "default",
+						},
+						Status: v1.PodStatus{
+							Phase: v1.PodRunning,
+						},
+					},
+				},
+			},
+			want: want{
+				check: func(t *testing.T, f *fields, s *shared) {
+					podList, err := f.clientSet.CoreV1().Pods("default").List(t.Context(), metav1.ListOptions{})
+					require.NoError(t, err)
+					assert.Empty(t, podList.Items, "Expected no pods in default namespace after force deletion")
+
+					outBytes, err := io.ReadAll(s.out)
+					require.NoError(t, err)
+					outStr := string(outBytes)
+					assert.Contains(t, outStr, "Deleted pod test-pod in namespace default")
+				},
+			},
+		},
+		{
 			name: "Patch matching pods",
 			prepare: func(_ *testing.T, _ *fields, s *shared) error {
 				s.in.Write([]byte("y\n"))

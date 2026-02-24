@@ -414,6 +414,43 @@ func TestUniversalHandler(t *testing.T) {
 			},
 		},
 		{
+			name: "Force delete resource skips graceful deletion",
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
+				s.in.Write([]byte("y\n"))
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Namespace:    "default",
+					Action:       ActionDelete,
+					Force:        true,
+					ResourceType: getResource("configmap"),
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.ConfigMap{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "ConfigMap",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-cm",
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			want: want{
+				check: func(t *testing.T, _ *fields, s *shared) {
+					outBytes, err := io.ReadAll(s.out)
+					require.NoError(t, err)
+					outStr := string(outBytes)
+					assert.Contains(t, outStr, "Deleted configmap test-cm")
+				},
+			},
+		},
+		{
 			name: "Patch resource with confirmation",
 			prepare: func(_ *testing.T, _ *fields, s *shared) error {
 				s.in.Write([]byte("y\n"))

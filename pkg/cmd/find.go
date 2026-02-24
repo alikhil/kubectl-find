@@ -87,6 +87,7 @@ type FindOptions struct {
 	labelSelector string
 	nodeNameRegex string
 	skipConfirm   bool
+	force         bool
 	restarted     bool
 	imageRegex    string
 	jqFilter      string
@@ -158,7 +159,9 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 	cmd.Flags().
 		StringVar(&o.maxAge, "max-age", "", "Filter resources by maximum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.")
 	cmd.Flags().
-		BoolVarP(&o.skipConfirm, "force", "f", false, "Skip confirmation prompt before performing actions on resources.")
+		BoolVarP(&o.skipConfirm, "skip-confirm", "y", false, "Skip confirmation prompt before performing actions on resources.")
+	cmd.Flags().
+		BoolVar(&o.force, "force", false, "If true, immediately remove resources from API and bypass graceful deletion. Can only be used with --delete flag.")
 	cmd.Flags().
 		StringVar(&o.nodeNameRegex, "node", "", "Filter pods by node name regex; Uses pod.Spec.NodeName or pod.Status.NominatedNodeName if the former is empty.")
 	cmd.Flags().
@@ -361,6 +364,10 @@ func (o *FindOptions) Validate() error {
 		action = handlers.ActionExec
 	}
 
+	if o.force && action != handlers.ActionDelete {
+		return errors.New("--force flag can only be used with --delete flag")
+	}
+
 	if action == handlers.ActionExec && !o.handler.IsExecutable() {
 		return fmt.Errorf("resource type %q does not support execution",
 			o.resourceType.GroupVersionResource.String())
@@ -445,6 +452,7 @@ func (o *FindOptions) Validate() error {
 		JQQuery:         jqQuery,
 		NodeNameRegex:   nodeNameRegex,
 		SkipConfirm:     o.skipConfirm,
+		Force:           o.force,
 		PodStatus:       handlers.ToPodPhase(o.podStatus),
 		Exec:            o.exec,
 		Patch:           o.patch,
