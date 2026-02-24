@@ -44,7 +44,8 @@ Flags:
   -p, --patch string                   Patch all found resources with the specified JSON patch.
   -e, --exec string                    Execute a command on all found pods.
       --delete                         Delete all matched resources.
-  -f, --force                          Skip confirmation prompt before performing actions on resources.
+  -y, --skip-confirm                   Skip confirmation prompt before performing actions on resources.
+      --force                          If true, immediately remove resources from API and bypass graceful deletion. Can only be used with --delete flag.
 ```
 
 ## Install

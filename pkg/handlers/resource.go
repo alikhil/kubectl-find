@@ -191,6 +191,7 @@ type ActionOptions struct {
 	MinAge          time.Duration
 	MaxAge          time.Duration
 	SkipConfirm     bool        // skip confirmation prompt before performing actions
+	Force           bool        // immediately remove resources from API and bypass graceful deletion (only for delete action)
 	ResourceType    Resource    // type of resource being handled
 	JQQuery         *gojq.Query // field selector to filter resources
 	ShowLabels      []string    // list of labels to show in output

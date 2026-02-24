@@ -139,9 +139,14 @@ func (p *PodHandler) HandleAction(ctx context.Context, options ActionOptions) er
 		}
 		for _, pod := range matchedPods {
 			deletionPropagation := metav1.DeletePropagationBackground
+			deleteOptions := metav1.DeleteOptions{PropagationPolicy: &deletionPropagation}
+			if options.Force {
+				gracePeriod := int64(0)
+				deleteOptions.GracePeriodSeconds = &gracePeriod
+			}
 			err = p.clientSet.CoreV1().
 				Pods(pod.ObjectMeta.Namespace).
-				Delete(ctx, pod.Name, metav1.DeleteOptions{PropagationPolicy: &deletionPropagation})
+				Delete(ctx, pod.Name, deleteOptions)
 			if err != nil {
 				return fmt.Errorf("failed to delete pod %s: %w", pod.Name, err)
 			}

@@ -134,8 +134,12 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 		}
 		for _, item := range matchedItems {
 			deletionPropagation := v1.DeletePropagationBackground
-
-			if err = resources.Delete(ctx, item.GetName(), v1.DeleteOptions{PropagationPolicy: &deletionPropagation}); err != nil {
+			deleteOptions := v1.DeleteOptions{PropagationPolicy: &deletionPropagation}
+			if options.Force {
+				gracePeriod := int64(0)
+				deleteOptions.GracePeriodSeconds = &gracePeriod
+			}
+			if err = resources.Delete(ctx, item.GetName(), deleteOptions); err != nil {
 				return fmt.Errorf("failed to delete %s %s: %w", h.opts.Resource.SingularName, item.GetName(), err)
 			}
 			fmt.Fprintf(options.Streams.Out, "Deleted %s %s\n", h.opts.Resource.SingularName, item.GetName())
