@@ -22,6 +22,8 @@ import (
 
 const defaultReplicaCount = int32(1)
 
+const nodeRoleLabelPrefix = "node-role.kubernetes.io/"
+
 func labelToColumnHeader(label string) string {
 	parts := strings.Split(label, "/")
 	//nolint:mnd // common case to have prefix with slash
@@ -333,8 +335,8 @@ func getNodeStatus(node *v1.Node) string {
 func getNodeRoles(node *v1.Node) string {
 	var roles []string
 	for key := range node.Labels {
-		if strings.HasPrefix(key, "node-role.kubernetes.io/") {
-			role := strings.TrimPrefix(key, "node-role.kubernetes.io/")
+		if strings.HasPrefix(key, nodeRoleLabelPrefix) {
+			role := strings.TrimPrefix(key, nodeRoleLabelPrefix)
 			if role != "" {
 				roles = append(roles, role)
 			}
