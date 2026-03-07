@@ -823,9 +823,10 @@ func TestUniversalHandler(t *testing.T) {
 
 			handler := UniversalHandler{
 				opts: UniversalHandlerOptions{
-					Printer:  ff.printer,
-					Client:   ff.client,
-					Resource: args.options.ResourceType,
+					Printer:         ff.printer,
+					Client:          ff.client,
+					Resource:        args.options.ResourceType,
+					ResourceMatcher: getResourceMatcher(args.options.ResourceType),
 				},
 			}
 

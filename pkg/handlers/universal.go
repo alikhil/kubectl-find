@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/alikhil/kubectl-find/pkg"
@@ -20,14 +19,21 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
+// ResourceMatcher is a function that determines whether a resource matches
+// resource-specific filtering criteria. It is injected into UniversalHandler
+// to support resource-specific filters without coupling the handler to any
+// particular resource type.
+type ResourceMatcher func(resource unstructured.Unstructured, options *ActionOptions) bool
+
 type UniversalHandler struct {
 	opts UniversalHandlerOptions
 }
 
 type UniversalHandlerOptions struct {
-	Client   dynamic.Interface
-	Printer  printers.BatchPrinter
-	Resource Resource
+	Client          dynamic.Interface
+	Printer         printers.BatchPrinter
+	Resource        Resource
+	ResourceMatcher ResourceMatcher // optional resource-specific matcher injected during handler creation
 }
 
 func NewUniversalHandler(opts UniversalHandlerOptions) *UniversalHandler {
@@ -204,43 +210,8 @@ func (h *UniversalHandler) resourceMatches(resource unstructured.Unstructured, o
 		return true
 	}
 
-	if len(options.NodeConditions) > 0 {
-		if !h.nodeConditionMatches(resource, options.NodeConditions) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (h *UniversalHandler) nodeConditionMatches(
-	resource unstructured.Unstructured,
-	conditions []NodeCondition,
-) bool {
-	conditionsRaw, found, _ := unstructured.NestedSlice(resource.Object, "status", "conditions")
-	if !found {
-		return false
-	}
-
-	conditionMap := make(map[string]string, len(conditionsRaw))
-	for _, c := range conditionsRaw {
-		cMap, ok := c.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		cType, _ := cMap["type"].(string)
-		cStatus, _ := cMap["status"].(string)
-		if cType != "" {
-			conditionMap[strings.ToLower(cType)] = strings.ToLower(cStatus)
-		}
-	}
-
-	for _, nc := range conditions {
-		actual, exists := conditionMap[strings.ToLower(nc.Type)]
-		if !exists {
-			return false
-		}
-		if actual != strings.ToLower(nc.Status) {
+	if h.opts.ResourceMatcher != nil {
+		if !h.opts.ResourceMatcher(resource, options) {
 			return false
 		}
 	}

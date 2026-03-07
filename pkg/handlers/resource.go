@@ -185,7 +185,8 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
 				AnnotationColumns: GetAnnotationColumns(opts),
 			}),
-			Resource: resource,
+			Resource:        resource,
+			ResourceMatcher: getResourceMatcher(resource),
 		}), nil
 	}
 }
@@ -231,4 +232,15 @@ type NodeCondition struct {
 type ResourceHandler interface {
 	IsExecutable() bool
 	HandleAction(ctx context.Context, options ActionOptions) error
+}
+
+// getResourceMatcher returns a ResourceMatcher for the given resource type,
+// or nil if no resource-specific matching is needed.
+func getResourceMatcher(resource Resource) ResourceMatcher {
+	switch resource.GroupVersionResource {
+	case NodeType:
+		return NodeConditionMatcher()
+	default:
+		return nil
+	}
 }
