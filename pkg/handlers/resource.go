@@ -65,6 +65,13 @@ var DaemonSetType = schema.GroupVersionResource{
 	Version:  "v1",
 }
 
+//nolint:gochecknoglobals
+var NodeType = schema.GroupVersionResource{
+	Resource: "nodes",
+	Group:    "",
+	Version:  "v1",
+}
+
 type Action int
 
 const (
@@ -208,7 +215,16 @@ type ActionOptions struct {
 	ImageRegex     *regexp.Regexp      // filter pods by container image, only applicable for pod resources
 	ShowNodeLabels []string            // list of node labels to show, only applicable for pod resources
 
+	// Node related options
+	NodeConditions []NodeCondition // filter nodes by conditions, only applicable for node resources
+
 	Streams *genericclioptions.IOStreams
+}
+
+// NodeCondition represents a node condition filter with a type and expected status.
+type NodeCondition struct {
+	Type   string
+	Status string
 }
 
 // ResourceHandler is an interface that represents a generic resource handler.

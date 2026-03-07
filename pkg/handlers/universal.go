@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/alikhil/kubectl-find/pkg"
@@ -201,6 +202,47 @@ func (h *UniversalHandler) resourceMatches(resource unstructured.Unstructured, o
 			return false
 		}
 		return true
+	}
+
+	if len(options.NodeConditions) > 0 {
+		if !h.nodeConditionMatches(resource, options.NodeConditions) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (h *UniversalHandler) nodeConditionMatches(
+	resource unstructured.Unstructured,
+	conditions []NodeCondition,
+) bool {
+	conditionsRaw, found, _ := unstructured.NestedSlice(resource.Object, "status", "conditions")
+	if !found {
+		return false
+	}
+
+	conditionMap := make(map[string]string, len(conditionsRaw))
+	for _, c := range conditionsRaw {
+		cMap, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		cType, _ := cMap["type"].(string)
+		cStatus, _ := cMap["status"].(string)
+		if cType != "" {
+			conditionMap[strings.ToLower(cType)] = strings.ToLower(cStatus)
+		}
+	}
+
+	for _, nc := range conditions {
+		actual, exists := conditionMap[strings.ToLower(nc.Type)]
+		if !exists {
+			return false
+		}
+		if actual != strings.ToLower(nc.Status) {
+			return false
+		}
 	}
 
 	return true
