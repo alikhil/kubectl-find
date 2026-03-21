@@ -239,7 +239,7 @@ type ResourceHandler interface {
 func getResourceMatcher(resource Resource) ResourceMatcher {
 	switch resource.GroupVersionResource {
 	case NodeType:
-		return NodeConditionMatcher()
+		return NodeConditionMatches
 	default:
 		return nil
 	}

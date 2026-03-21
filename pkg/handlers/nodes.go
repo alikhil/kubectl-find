@@ -6,21 +6,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// NodeConditionMatcher returns a ResourceMatcher that filters nodes by conditions.
+// NodeConditionMatches is a ResourceMatcher that filters nodes by conditions.
 // All specified conditions must match (AND logic). Comparison is case-insensitive.
-func NodeConditionMatcher() ResourceMatcher {
-	return func(resource unstructured.Unstructured, options *ActionOptions) bool {
-		if len(options.NodeConditions) == 0 {
-			return true
-		}
-		return nodeConditionMatches(resource, options.NodeConditions)
+func NodeConditionMatches(resource unstructured.Unstructured, options *ActionOptions) bool {
+	if len(options.NodeConditions) == 0 {
+		return true
 	}
-}
 
-func nodeConditionMatches(
-	resource unstructured.Unstructured,
-	conditions []NodeCondition,
-) bool {
 	conditionsRaw, found, _ := unstructured.NestedSlice(resource.Object, "status", "conditions")
 	if !found {
 		return false
@@ -39,7 +31,7 @@ func nodeConditionMatches(
 		}
 	}
 
-	for _, nc := range conditions {
+	for _, nc := range options.NodeConditions {
 		actual, exists := conditionMap[strings.ToLower(nc.Type)]
 		if !exists {
 			return false
