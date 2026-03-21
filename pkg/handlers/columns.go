@@ -371,6 +371,11 @@ func getColumnsForNodes() []printers.Column {
 				return getNodeRoles(node)
 			},
 		},
+	}
+}
+
+func getSuffixColumnsForNodes() []printers.Column {
+	return []printers.Column{
 		{
 			Header: "VERSION",
 			Value: func(obj unstructured.Unstructured) string {
@@ -463,6 +468,15 @@ func GetColumnsFor(opts HandlerOptions, resourceType Resource) []printers.Column
 				return columns
 			}
 		}
+		return nil
+	}
+}
+
+func GetSuffixColumnsFor(resourceType Resource) []printers.Column {
+	switch resourceType.GroupVersionResource {
+	case NodeType:
+		return getSuffixColumnsForNodes()
+	default:
 		return nil
 	}
 }

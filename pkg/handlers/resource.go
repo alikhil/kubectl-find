@@ -182,6 +182,7 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 			Printer: printers.NewTablePrinter(printers.TablePrinterOptions{
 				ShowNamespace:     resource.IsNamespaced && opts.allNamespaces,
 				AdditionalColumns: GetColumnsFor(opts, resource),
+				SuffixColumns:     GetSuffixColumnsFor(resource),
 				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
 				AnnotationColumns: GetAnnotationColumns(opts),
 			}),

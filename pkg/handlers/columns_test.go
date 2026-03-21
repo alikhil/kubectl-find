@@ -190,7 +190,7 @@ func Test_GetColumnsForNodes_MatchesKubectlGet(t *testing.T) {
 	}
 
 	columns := GetColumnsFor(HandlerOptions{}, Resource{GroupVersionResource: NodeType})
-	require.Len(t, columns, 3)
+	require.Len(t, columns, 2)
 
 	obj := toUnstructured(t, node)
 
@@ -198,8 +198,11 @@ func Test_GetColumnsForNodes_MatchesKubectlGet(t *testing.T) {
 	require.Equal(t, "Ready", columns[0].Value(obj))
 	require.Equal(t, "ROLES", columns[1].Header)
 	require.Equal(t, "control-plane,master", columns[1].Value(obj))
-	require.Equal(t, "VERSION", columns[2].Header)
-	require.Equal(t, "v1.28.0", columns[2].Value(obj))
+
+	suffixColumns := GetSuffixColumnsFor(Resource{GroupVersionResource: NodeType})
+	require.Len(t, suffixColumns, 1)
+	require.Equal(t, "VERSION", suffixColumns[0].Header)
+	require.Equal(t, "v1.28.0", suffixColumns[0].Value(obj))
 }
 
 func Test_GetColumnsForNodes_NotReady(t *testing.T) {
