@@ -15,7 +15,8 @@ import (
 type TablePrinterOptions struct {
 	ShowNamespace     bool
 	AdditionalColumns []Column // additional columns to add to the table after NAME
-	LabelColumns      []Column // additional columns to add to the table after AGE
+	SuffixColumns     []Column // additional columns to add to the table after AGE but before labels
+	LabelColumns      []Column // additional columns to add to the table after SuffixColumns
 	AnnotationColumns []Column // additional columns to add to the table after LabelColumns
 }
 
@@ -105,6 +106,7 @@ func (p *TablePrinter) PrintObjects(objects []unstructured.Unstructured, out io.
 		},
 	})
 
+	columns = append(columns, p.options.SuffixColumns...)
 	columns = append(columns, p.options.LabelColumns...)
 	columns = append(columns, p.options.AnnotationColumns...)
 

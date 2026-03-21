@@ -628,6 +628,160 @@ func TestUniversalHandler(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "List nodes with condition filter Ready=True",
+			prepare: func(t *testing.T, f *fields, s *shared) error {
+				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
+				m.EXPECT().PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[0])), gomock.Any()).Return(nil).Times(1)
+				f.printer = m
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Action:       ActionList,
+					ResourceType: getResource("node"),
+					NodeConditions: []NodeCondition{
+						{Type: "Ready", Status: "True"},
+					},
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.Node{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "Node",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "ready-node",
+						},
+						Status: v1.NodeStatus{
+							Conditions: []v1.NodeCondition{
+								{Type: v1.NodeReady, Status: v1.ConditionTrue},
+							},
+						},
+					},
+					&v1.Node{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "Node",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "not-ready-node",
+						},
+						Status: v1.NodeStatus{
+							Conditions: []v1.NodeCondition{
+								{Type: v1.NodeReady, Status: v1.ConditionFalse},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "List nodes with multiple condition filters",
+			prepare: func(t *testing.T, f *fields, s *shared) error {
+				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
+				m.EXPECT().PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[0])), gomock.Any()).Return(nil).Times(1)
+				f.printer = m
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Action:       ActionList,
+					ResourceType: getResource("node"),
+					NodeConditions: []NodeCondition{
+						{Type: "Ready", Status: "True"},
+						{Type: "DiskPressure", Status: "False"},
+					},
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.Node{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "Node",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "healthy-node",
+						},
+						Status: v1.NodeStatus{
+							Conditions: []v1.NodeCondition{
+								{Type: v1.NodeReady, Status: v1.ConditionTrue},
+								{Type: v1.NodeDiskPressure, Status: v1.ConditionFalse},
+							},
+						},
+					},
+					&v1.Node{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "Node",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "disk-pressure-node",
+						},
+						Status: v1.NodeStatus{
+							Conditions: []v1.NodeCondition{
+								{Type: v1.NodeReady, Status: v1.ConditionTrue},
+								{Type: v1.NodeDiskPressure, Status: v1.ConditionTrue},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "List nodes with custom condition filter",
+			prepare: func(t *testing.T, f *fields, s *shared) error {
+				m := mocks.NewMockBatchPrinter(gomock.NewController(t))
+				m.EXPECT().PrintObjects(gomock.InAnyOrder(toUL(t, s.resources[1])), gomock.Any()).Return(nil).Times(1)
+				f.printer = m
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Action:       ActionList,
+					ResourceType: getResource("node"),
+					NodeConditions: []NodeCondition{
+						{Type: "FrequentDockerRestart", Status: "True"},
+					},
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.Node{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "Node",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "normal-node",
+						},
+						Status: v1.NodeStatus{
+							Conditions: []v1.NodeCondition{
+								{Type: v1.NodeReady, Status: v1.ConditionTrue},
+							},
+						},
+					},
+					&v1.Node{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "Node",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "problematic-node",
+						},
+						Status: v1.NodeStatus{
+							Conditions: []v1.NodeCondition{
+								{Type: v1.NodeReady, Status: v1.ConditionTrue},
+								{Type: "FrequentDockerRestart", Status: v1.ConditionTrue},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	test := func(prepare func(*testing.T, *fields, *shared) error, args args, shared shared, want want) func(t *testing.T) {
@@ -648,6 +802,10 @@ func TestUniversalHandler(t *testing.T) {
 					if ns.CreationTimestamp.IsZero() {
 						ns.CreationTimestamp = metav1.NewTime(time.Now())
 					}
+				} else if node, ok4 := resource.(*v1.Node); ok4 {
+					if node.CreationTimestamp.IsZero() {
+						node.CreationTimestamp = metav1.NewTime(time.Now())
+					}
 				}
 			}
 
@@ -665,9 +823,10 @@ func TestUniversalHandler(t *testing.T) {
 
 			handler := UniversalHandler{
 				opts: UniversalHandlerOptions{
-					Printer:  ff.printer,
-					Client:   ff.client,
-					Resource: args.options.ResourceType,
+					Printer:         ff.printer,
+					Client:          ff.client,
+					Resource:        args.options.ResourceType,
+					ResourceMatcher: getResourceMatcher(args.options.ResourceType),
 				},
 			}
 

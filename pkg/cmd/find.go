@@ -93,6 +93,8 @@ type FindOptions struct {
 	jqFilter      string
 	naturalSort   bool
 
+	nodeConditions []string
+
 	showNodeLabels  []string
 	showLabels      []string
 	showAnnotations []string
@@ -178,6 +180,9 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 		StringSliceVarP(&o.showAnnotations, "annotations", "T", nil, "Comma-separated list of annotations to show.")
 	cmd.Flags().
 		BoolVar(&o.naturalSort, "natural-sort", false, "Sort resource names in natural order.")
+	cmd.Flags().
+		StringSliceVar(&o.nodeConditions, "node-condition", nil,
+			"Filter nodes by conditions; format: ConditionType=Status (e.g. 'Ready=True', 'DiskPressure=False'). Supports custom conditions from NPD or other agents.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
@@ -441,6 +446,29 @@ func (o *FindOptions) Validate() error {
 		}
 	}
 
+	var nodeConditions []handlers.NodeCondition
+	if len(o.nodeConditions) > 0 {
+		if o.resourceType.GroupVersionResource != handlers.NodeType {
+			return fmt.Errorf(
+				"node condition filtering is only supported for nodes, but got %q",
+				o.resourceType.GroupVersionResource.String(),
+			)
+		}
+		for _, nc := range o.nodeConditions {
+			parts := strings.SplitN(nc, "=", 2) //nolint:mnd // split into key=value pair
+			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+				return fmt.Errorf(
+					"invalid node condition format %q, expected ConditionType=Status (e.g. Ready=True)",
+					nc,
+				)
+			}
+			nodeConditions = append(nodeConditions, handlers.NodeCondition{
+				Type:   parts[0],
+				Status: parts[1],
+			})
+		}
+	}
+
 	o.options = handlers.ActionOptions{
 		Namespace:       o.userSpecifiedNamespace,
 		Action:          action,
@@ -463,6 +491,7 @@ func (o *FindOptions) Validate() error {
 		ShowLabels:      o.showLabels,
 		ShowAnnotations: o.showAnnotations,
 		NaturalSort:     o.naturalSort,
+		NodeConditions:  nodeConditions,
 	}
 
 	return nil

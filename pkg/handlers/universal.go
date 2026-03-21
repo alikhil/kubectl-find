@@ -19,14 +19,21 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
+// ResourceMatcher is a function that determines whether a resource matches
+// resource-specific filtering criteria. It is injected into UniversalHandler
+// to support resource-specific filters without coupling the handler to any
+// particular resource type.
+type ResourceMatcher func(resource unstructured.Unstructured, options *ActionOptions) bool
+
 type UniversalHandler struct {
 	opts UniversalHandlerOptions
 }
 
 type UniversalHandlerOptions struct {
-	Client   dynamic.Interface
-	Printer  printers.BatchPrinter
-	Resource Resource
+	Client          dynamic.Interface
+	Printer         printers.BatchPrinter
+	Resource        Resource
+	ResourceMatcher ResourceMatcher // optional resource-specific matcher injected during handler creation
 }
 
 func NewUniversalHandler(opts UniversalHandlerOptions) *UniversalHandler {
@@ -201,6 +208,12 @@ func (h *UniversalHandler) resourceMatches(resource unstructured.Unstructured, o
 			return false
 		}
 		return true
+	}
+
+	if h.opts.ResourceMatcher != nil {
+		if !h.opts.ResourceMatcher(resource, options) {
+			return false
+		}
 	}
 
 	return true

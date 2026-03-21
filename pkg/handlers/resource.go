@@ -65,6 +65,13 @@ var DaemonSetType = schema.GroupVersionResource{
 	Version:  "v1",
 }
 
+//nolint:gochecknoglobals
+var NodeType = schema.GroupVersionResource{
+	Resource: "nodes",
+	Group:    "",
+	Version:  "v1",
+}
+
 type Action int
 
 const (
@@ -175,10 +182,12 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 			Printer: printers.NewTablePrinter(printers.TablePrinterOptions{
 				ShowNamespace:     resource.IsNamespaced && opts.allNamespaces,
 				AdditionalColumns: GetColumnsFor(opts, resource),
+				SuffixColumns:     GetSuffixColumnsFor(resource),
 				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
 				AnnotationColumns: GetAnnotationColumns(opts),
 			}),
-			Resource: resource,
+			Resource:        resource,
+			ResourceMatcher: getResourceMatcher(resource),
 		}), nil
 	}
 }
@@ -208,11 +217,31 @@ type ActionOptions struct {
 	ImageRegex     *regexp.Regexp      // filter pods by container image, only applicable for pod resources
 	ShowNodeLabels []string            // list of node labels to show, only applicable for pod resources
 
+	// Node related options
+	NodeConditions []NodeCondition // filter nodes by conditions, only applicable for node resources
+
 	Streams *genericclioptions.IOStreams
+}
+
+// NodeCondition represents a node condition filter with a type and expected status.
+type NodeCondition struct {
+	Type   string
+	Status string
 }
 
 // ResourceHandler is an interface that represents a generic resource handler.
 type ResourceHandler interface {
 	IsExecutable() bool
 	HandleAction(ctx context.Context, options ActionOptions) error
+}
+
+// getResourceMatcher returns a ResourceMatcher for the given resource type,
+// or nil if no resource-specific matching is needed.
+func getResourceMatcher(resource Resource) ResourceMatcher {
+	switch resource.GroupVersionResource {
+	case NodeType:
+		return NodeConditionMatches
+	default:
+		return nil
+	}
 }

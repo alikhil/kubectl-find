@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -163,6 +164,91 @@ func Test_GetColumnsForReplicaSets(t *testing.T) {
 	require.Equal(t, "4", columns[1].Value(obj))
 	require.Equal(t, "READY", columns[2].Header)
 	require.Equal(t, "3", columns[2].Value(obj))
+}
+
+func Test_GetColumnsForNodes_MatchesKubectlGet(t *testing.T) {
+	node := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-1",
+			Labels: map[string]string{
+				"node-role.kubernetes.io/control-plane": "",
+				"node-role.kubernetes.io/master":        "",
+			},
+		},
+		Spec: v1.NodeSpec{
+			Unschedulable: false,
+		},
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{Type: v1.NodeReady, Status: v1.ConditionTrue},
+				{Type: v1.NodeDiskPressure, Status: v1.ConditionFalse},
+			},
+			NodeInfo: v1.NodeSystemInfo{
+				KubeletVersion: "v1.28.0",
+			},
+		},
+	}
+
+	columns := GetColumnsFor(HandlerOptions{}, Resource{GroupVersionResource: NodeType})
+	require.Len(t, columns, 2)
+
+	obj := toUnstructured(t, node)
+
+	require.Equal(t, "STATUS", columns[0].Header)
+	require.Equal(t, "Ready", columns[0].Value(obj))
+	require.Equal(t, "ROLES", columns[1].Header)
+	require.Equal(t, "control-plane,master", columns[1].Value(obj))
+
+	suffixColumns := GetSuffixColumnsFor(Resource{GroupVersionResource: NodeType})
+	require.Len(t, suffixColumns, 1)
+	require.Equal(t, "VERSION", suffixColumns[0].Header)
+	require.Equal(t, "v1.28.0", suffixColumns[0].Value(obj))
+}
+
+func Test_GetColumnsForNodes_NotReady(t *testing.T) {
+	node := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-2",
+		},
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{Type: v1.NodeReady, Status: v1.ConditionFalse},
+			},
+			NodeInfo: v1.NodeSystemInfo{
+				KubeletVersion: "v1.28.0",
+			},
+		},
+	}
+
+	columns := GetColumnsFor(HandlerOptions{}, Resource{GroupVersionResource: NodeType})
+	obj := toUnstructured(t, node)
+
+	require.Equal(t, "NotReady", columns[0].Value(obj))
+	require.Equal(t, NoneStr, columns[1].Value(obj))
+}
+
+func Test_GetColumnsForNodes_SchedulingDisabled(t *testing.T) {
+	node := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-3",
+		},
+		Spec: v1.NodeSpec{
+			Unschedulable: true,
+		},
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{Type: v1.NodeReady, Status: v1.ConditionTrue},
+			},
+			NodeInfo: v1.NodeSystemInfo{
+				KubeletVersion: "v1.28.0",
+			},
+		},
+	}
+
+	columns := GetColumnsFor(HandlerOptions{}, Resource{GroupVersionResource: NodeType})
+	obj := toUnstructured(t, node)
+
+	require.Equal(t, "Ready,SchedulingDisabled", columns[0].Value(obj))
 }
 
 func Test_GetColumnsForDaemonSets(t *testing.T) {

@@ -64,6 +64,17 @@ func getResource(resourceType string) Resource {
 			SingularName: "namespace",
 			IsNamespaced: false,
 		}
+	case "node":
+		return Resource{
+			GroupVersionResource: schema.GroupVersionResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "nodes",
+			},
+			PluralName:   "nodes",
+			SingularName: "node",
+			IsNamespaced: false,
+		}
 	default:
 		return Resource{}
 	}

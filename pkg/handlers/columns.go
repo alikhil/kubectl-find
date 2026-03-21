@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -20,6 +21,8 @@ import (
 )
 
 const defaultReplicaCount = int32(1)
+
+const nodeRoleLabelPrefix = "node-role.kubernetes.io/"
 
 func labelToColumnHeader(label string) string {
 	parts := strings.Split(label, "/")
@@ -303,6 +306,89 @@ func getColumnsForReplicaSets() []printers.Column {
 	}
 }
 
+func toNode(obj unstructured.Unstructured) (*v1.Node, error) {
+	node := &v1.Node{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, node); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+func getNodeStatus(node *v1.Node) string {
+	conditionMap := make(map[v1.NodeConditionType]v1.ConditionStatus)
+	for _, condition := range node.Status.Conditions {
+		conditionMap[condition.Type] = condition.Status
+	}
+
+	status := "NotReady"
+	if conditionMap[v1.NodeReady] == v1.ConditionTrue {
+		status = "Ready"
+	}
+
+	if node.Spec.Unschedulable {
+		status += ",SchedulingDisabled"
+	}
+
+	return status
+}
+
+func getNodeRoles(node *v1.Node) string {
+	var roles []string
+	for key := range node.Labels {
+		if strings.HasPrefix(key, nodeRoleLabelPrefix) {
+			role := strings.TrimPrefix(key, nodeRoleLabelPrefix)
+			if role != "" {
+				roles = append(roles, role)
+			}
+		}
+	}
+	if len(roles) == 0 {
+		return NoneStr
+	}
+	sort.Strings(roles)
+	return strings.Join(roles, ",")
+}
+
+func getColumnsForNodes() []printers.Column {
+	return []printers.Column{
+		{
+			Header: "STATUS",
+			Value: func(obj unstructured.Unstructured) string {
+				node, err := toNode(obj)
+				if err != nil {
+					return UnknownStr
+				}
+				return getNodeStatus(node)
+			},
+		},
+		{
+			Header: "ROLES",
+			Value: func(obj unstructured.Unstructured) string {
+				node, err := toNode(obj)
+				if err != nil {
+					return UnknownStr
+				}
+				return getNodeRoles(node)
+			},
+		},
+	}
+}
+
+func getSuffixColumnsForNodes() []printers.Column {
+	return []printers.Column{
+		{
+			Header: "VERSION",
+			Value: func(obj unstructured.Unstructured) string {
+				node, err := toNode(obj)
+				if err != nil {
+					return UnknownStr
+				}
+				return node.Status.NodeInfo.KubeletVersion
+			},
+		},
+	}
+}
+
 func getColumnsForDaemonSets() []printers.Column {
 	return []printers.Column{
 		{
@@ -372,6 +458,8 @@ func GetColumnsFor(opts HandlerOptions, resourceType Resource) []printers.Column
 		return getColumnsForReplicaSets()
 	case DaemonSetType:
 		return getColumnsForDaemonSets()
+	case NodeType:
+		return getColumnsForNodes()
 	default:
 
 		if !isBuiltin(scheme.Scheme, resourceType.GroupVersionKind) {
@@ -380,6 +468,15 @@ func GetColumnsFor(opts HandlerOptions, resourceType Resource) []printers.Column
 				return columns
 			}
 		}
+		return nil
+	}
+}
+
+func GetSuffixColumnsFor(resourceType Resource) []printers.Column {
+	switch resourceType.GroupVersionResource {
+	case NodeType:
+		return getSuffixColumnsForNodes()
+	default:
 		return nil
 	}
 }
