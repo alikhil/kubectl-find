@@ -1,3 +1,9 @@
+## v0.13.0 (2026-03-21)
+
+### Feat
+
+- add --node-condition flag and kubectl-get-like node output columns (#31)
+
 ## v0.12.0 (2026-02-24)
 
 ### Feat
