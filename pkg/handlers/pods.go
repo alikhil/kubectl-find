@@ -192,6 +192,45 @@ func (p *PodHandler) HandleAction(ctx context.Context, options ActionOptions) er
 				return fmt.Errorf("failed to write to output: %w", err)
 			}
 		}
+	case ActionAnnotate:
+		if options.Annotate.IsEmpty() {
+			return errors.New("annotation changes are required for annotate action")
+		}
+		patchBytes, patchErr := options.Annotate.ToMergePatch()
+		if patchErr != nil {
+			return fmt.Errorf("failed to build annotation patch: %w", patchErr)
+		}
+		if !options.SkipConfirm {
+			_, err = options.Streams.ErrOut.Write([]byte("The following pods will be annotated:\n"))
+			if err != nil {
+				return fmt.Errorf("failed to write to error output: %w", err)
+			}
+			for _, pod := range matchedPods {
+				_, err = fmt.Fprintf(options.Streams.ErrOut, "- %s in namespace %s\n", pod.Name, pod.Namespace)
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
+			}
+			if !prompts.AskForConfirmation(options.Streams) {
+				_, err = options.Streams.ErrOut.Write([]byte("Annotation cancelled.\n"))
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
+				return nil
+			}
+		}
+		for _, pod := range matchedPods {
+			_, err = p.clientSet.CoreV1().
+				Pods(pod.ObjectMeta.Namespace).
+				Patch(ctx, pod.Name, k8s_types.MergePatchType, patchBytes, metav1.PatchOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to annotate pod %s: %w", pod.Name, err)
+			}
+			_, err = fmt.Fprintf(options.Streams.Out, "Annotated pod %s in namespace %s\n", pod.Name, pod.Namespace)
+			if err != nil {
+				return fmt.Errorf("failed to write to output: %w", err)
+			}
+		}
 	case ActionExec:
 		if options.Exec == "" {
 			return errors.New("exec command is required for exec action")
