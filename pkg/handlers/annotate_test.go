@@ -12,7 +12,7 @@ func TestParseAnnotateFlag(t *testing.T) {
 		name      string
 		input     string
 		wantAdd   map[string]string
-		wantRemov []string
+		wantRemove []string
 		wantErr   bool
 	}{
 		{
@@ -28,18 +28,18 @@ func TestParseAnnotateFlag(t *testing.T) {
 		{
 			name:      "single removal",
 			input:     "foo-",
-			wantRemov: []string{"foo"},
+			wantRemove: []string{"foo"},
 		},
 		{
 			name:      "multiple removals",
 			input:     "foo-,bar-",
-			wantRemov: []string{"foo", "bar"},
+			wantRemove: []string{"foo", "bar"},
 		},
 		{
 			name:      "mixed additions and removals",
 			input:     "foo=bar,baz-",
 			wantAdd:   map[string]string{"foo": "bar"},
-			wantRemov: []string{"baz"},
+			wantRemove: []string{"baz"},
 		},
 		{
 			name:    "value with equals sign",
@@ -59,7 +59,7 @@ func TestParseAnnotateFlag(t *testing.T) {
 		{
 			name:      "removal with slash in key",
 			input:     "kubernetes.io/name-",
-			wantRemov: []string{"kubernetes.io/name"},
+			wantRemove: []string{"kubernetes.io/name"},
 		},
 		{
 			name:    "empty input",
@@ -99,8 +99,8 @@ func TestParseAnnotateFlag(t *testing.T) {
 				assert.Empty(t, cfg.Add)
 			}
 
-			if tt.wantRemov != nil {
-				assert.Equal(t, tt.wantRemov, cfg.Remove)
+			if tt.wantRemove != nil {
+				assert.Equal(t, tt.wantRemove, cfg.Remove)
 			} else {
 				assert.Empty(t, cfg.Remove)
 			}
