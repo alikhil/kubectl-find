@@ -782,6 +782,173 @@ func TestUniversalHandler(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Annotate resource with confirmation",
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
+				s.in.Write([]byte("y\n"))
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Namespace:    "default",
+					Action:       ActionAnnotate,
+					ResourceType: getResource("configmap"),
+					Annotate: AnnotateConfig{
+						Add: map[string]string{"foo": "bar"},
+					},
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.ConfigMap{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "ConfigMap",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-cm",
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			want: want{
+				check: func(t *testing.T, _ *fields, s *shared) {
+					outBytes, err := io.ReadAll(s.out)
+					require.NoError(t, err)
+					errOutBytes, err := io.ReadAll(s.errOut)
+					require.NoError(t, err)
+
+					outStr := string(outBytes)
+					errOutStr := string(errOutBytes)
+
+					assert.Contains(t, outStr, "Annotated configmap test-cm")
+					assert.Contains(t, errOutStr, "The following configmaps will be annotated:")
+					assert.Contains(t, errOutStr, "- test-cm")
+				},
+			},
+		},
+		{
+			name: "Annotate resource cancelled",
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
+				s.in.Write([]byte("n\n"))
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Namespace:    "default",
+					Action:       ActionAnnotate,
+					ResourceType: getResource("configmap"),
+					Annotate: AnnotateConfig{
+						Add: map[string]string{"foo": "bar"},
+					},
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.ConfigMap{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "ConfigMap",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-cm",
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			want: want{
+				check: func(t *testing.T, _ *fields, s *shared) {
+					errOutBytes, err := io.ReadAll(s.errOut)
+					require.NoError(t, err)
+					errOutStr := string(errOutBytes)
+					assert.Contains(t, errOutStr, "Annotation cancelled.")
+				},
+			},
+		},
+		{
+			name: "Annotate resource with removal",
+			prepare: func(_ *testing.T, _ *fields, s *shared) error {
+				s.in.Write([]byte("y\n"))
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Namespace:    "default",
+					Action:       ActionAnnotate,
+					ResourceType: getResource("configmap"),
+					Annotate: AnnotateConfig{
+						Add:    map[string]string{},
+						Remove: []string{"old-annotation"},
+					},
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.ConfigMap{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "ConfigMap",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-cm",
+							Namespace: "default",
+							Annotations: map[string]string{
+								"old-annotation": "value",
+							},
+						},
+					},
+				},
+			},
+			want: want{
+				check: func(t *testing.T, _ *fields, s *shared) {
+					outBytes, err := io.ReadAll(s.out)
+					require.NoError(t, err)
+					outStr := string(outBytes)
+					assert.Contains(t, outStr, "Annotated configmap test-cm")
+				},
+			},
+		},
+		{
+			name: "Annotate resource skip confirm",
+			prepare: func(_ *testing.T, _ *fields, _ *shared) error {
+				return nil
+			},
+			args: args{
+				options: ActionOptions{
+					Namespace:    "default",
+					Action:       ActionAnnotate,
+					ResourceType: getResource("configmap"),
+					SkipConfirm:  true,
+					Annotate: AnnotateConfig{
+						Add: map[string]string{"env": "prod", "team": "platform"},
+					},
+				},
+			},
+			shared: shared{
+				resources: []runtime.Object{
+					&v1.ConfigMap{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "ConfigMap",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-cm",
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			want: want{
+				check: func(t *testing.T, _ *fields, s *shared) {
+					outBytes, err := io.ReadAll(s.out)
+					require.NoError(t, err)
+					outStr := string(outBytes)
+					assert.Contains(t, outStr, "Annotated configmap test-cm")
+				},
+			},
+		},
 	}
 
 	test := func(prepare func(*testing.T, *fields, *shared) error, args args, shared shared, want want) func(t *testing.T) {

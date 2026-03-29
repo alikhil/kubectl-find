@@ -118,7 +118,12 @@ func getColumnsForServices(_ HandlerOptions) []printers.Column {
 		{
 			Header: "EXTERNAL-IP",
 			Value: func(obj unstructured.Unstructured) string {
-				if ingress, found, _ := unstructured.NestedSlice(obj.Object, "status", "loadBalancer", "ingress"); found &&
+				if ingress, found, _ := unstructured.NestedSlice(
+					obj.Object,
+					"status",
+					"loadBalancer",
+					"ingress",
+				); found &&
 					len(ingress) > 0 {
 					var ips []string
 					for _, entry := range ingress {
@@ -505,7 +510,11 @@ func getColumnsFromCRD(opts HandlerOptions, resourceType schema.GroupVersionReso
 	}
 	// Cast to CustomResourceDefinition for type-safe access
 	crdTyped := &apiextensionsv1.CustomResourceDefinition{}
-	if err = runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(crd.Object, crdTyped, true); err != nil {
+	if err = runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(
+		crd.Object,
+		crdTyped,
+		true,
+	); err != nil {
 		return nil
 	}
 
@@ -679,7 +688,12 @@ func GetAnnotationColumns(opts HandlerOptions) []printers.Column {
 			columns = append(columns, printers.Column{
 				Header: labelToColumnHeader(key),
 				Value: func(obj unstructured.Unstructured) string {
-					if annotationValue, found, _ := unstructured.NestedString(obj.Object, "metadata", "annotations", key); found {
+					if annotationValue, found, _ := unstructured.NestedString(
+						obj.Object,
+						"metadata",
+						"annotations",
+						key,
+					); found {
 						return annotationValue
 					}
 					return NoneStr

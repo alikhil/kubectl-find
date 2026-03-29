@@ -80,6 +80,7 @@ type FindOptions struct {
 	delete        bool
 	exec          string
 	patch         string
+	annotate      string
 	regex         string
 	podStatus     string
 	minAge        string
@@ -156,6 +157,8 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 	cmd.Flags().BoolVar(&o.delete, "delete", false, "Delete all matched resources.")
 	cmd.Flags().StringVarP(&o.exec, "exec", "e", "", "Execute a command on all found pods.")
 	cmd.Flags().StringVarP(&o.patch, "patch", "p", "", "Patch all found resources with the specified JSON patch.")
+	cmd.Flags().StringVar(&o.annotate, "annotate", "",
+		"Annotate all found resources; format: k=v[,k2=v2] to add/overwrite or k- to remove annotations.")
 	cmd.Flags().
 		StringVar(&o.minAge, "min-age", "", "Filter resources by minimum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.")
 	cmd.Flags().
@@ -369,6 +372,19 @@ func (o *FindOptions) Validate() error {
 		action = handlers.ActionExec
 	}
 
+	var annotateCfg handlers.AnnotateConfig
+	if o.annotate != "" {
+		if o.delete || o.patch != "" || o.exec != "" {
+			return errors.New("cannot combine --annotate with --delete, --patch, or --exec flags")
+		}
+		var err2 error
+		annotateCfg, err2 = handlers.ParseAnnotateFlag(o.annotate)
+		if err2 != nil {
+			return fmt.Errorf("invalid --annotate flag value: %w", err2)
+		}
+		action = handlers.ActionAnnotate
+	}
+
 	if o.force && action != handlers.ActionDelete {
 		return errors.New("--force flag can only be used with --delete flag")
 	}
@@ -484,6 +500,7 @@ func (o *FindOptions) Validate() error {
 		PodStatus:       handlers.ToPodPhase(o.podStatus),
 		Exec:            o.exec,
 		Patch:           o.patch,
+		Annotate:        annotateCfg,
 		ResourceType:    o.resourceType,
 		Restarted:       o.restarted,
 		ImageRegex:      imagesRegex,

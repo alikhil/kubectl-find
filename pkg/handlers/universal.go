@@ -184,6 +184,40 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 		return nil
 	}
 
+	if options.Action == ActionAnnotate {
+		if options.Annotate.IsEmpty() {
+			return errors.New("annotation changes are required for annotate action")
+		}
+		patchBytes, patchErr := options.Annotate.ToMergePatch()
+		if patchErr != nil {
+			return fmt.Errorf("failed to build annotation patch: %w", patchErr)
+		}
+		if !options.SkipConfirm {
+			fmt.Fprintf(options.Streams.ErrOut, "The following %s will be annotated:\n", h.opts.Resource.PluralName)
+			for _, res := range matchedItems {
+				err = h.printResource(res, options, options.Streams.ErrOut)
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
+			}
+			if !prompts.AskForConfirmation(options.Streams) {
+				_, err = options.Streams.ErrOut.Write([]byte("Annotation cancelled.\n"))
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
+				return nil
+			}
+		}
+		for _, item := range matchedItems {
+			_, err = resources.Patch(ctx, item.GetName(), k8s_types.MergePatchType, patchBytes, v1.PatchOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to annotate %s %s: %w", h.opts.Resource.SingularName, item.GetName(), err)
+			}
+			fmt.Fprintf(options.Streams.Out, "Annotated %s %s\n", h.opts.Resource.SingularName, item.GetName())
+		}
+		return nil
+	}
+
 	return fmt.Errorf("unsupported action: %s", options.Action)
 }
 
