@@ -9,11 +9,11 @@ import (
 
 func TestParseAnnotateFlag(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
-		wantAdd   map[string]string
+		name       string
+		input      string
+		wantAdd    map[string]string
 		wantRemove []string
-		wantErr   bool
+		wantErr    bool
 	}{
 		{
 			name:    "single addition",
@@ -26,19 +26,19 @@ func TestParseAnnotateFlag(t *testing.T) {
 			wantAdd: map[string]string{"foo": "bar", "baz": "qux"},
 		},
 		{
-			name:      "single removal",
-			input:     "foo-",
+			name:       "single removal",
+			input:      "foo-",
 			wantRemove: []string{"foo"},
 		},
 		{
-			name:      "multiple removals",
-			input:     "foo-,bar-",
+			name:       "multiple removals",
+			input:      "foo-,bar-",
 			wantRemove: []string{"foo", "bar"},
 		},
 		{
-			name:      "mixed additions and removals",
-			input:     "foo=bar,baz-",
-			wantAdd:   map[string]string{"foo": "bar"},
+			name:       "mixed additions and removals",
+			input:      "foo=bar,baz-",
+			wantAdd:    map[string]string{"foo": "bar"},
 			wantRemove: []string{"baz"},
 		},
 		{
@@ -57,8 +57,8 @@ func TestParseAnnotateFlag(t *testing.T) {
 			wantAdd: map[string]string{"kubernetes.io/name": "test"},
 		},
 		{
-			name:      "removal with slash in key",
-			input:     "kubernetes.io/name-",
+			name:       "removal with slash in key",
+			input:      "kubernetes.io/name-",
 			wantRemove: []string{"kubernetes.io/name"},
 		},
 		{
