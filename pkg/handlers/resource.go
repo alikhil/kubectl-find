@@ -79,6 +79,7 @@ const (
 	ActionDelete
 	ActionPatch
 	ActionExec
+	ActionAnnotate
 )
 
 func (a Action) String() string {
@@ -91,6 +92,8 @@ func (a Action) String() string {
 		return "patch"
 	case ActionExec:
 		return "exec"
+	case ActionAnnotate:
+		return "annotate"
 	default:
 		return "Unknown"
 	}
@@ -206,6 +209,9 @@ type ActionOptions struct {
 	ShowLabels      []string    // list of labels to show in output
 	ShowAnnotations []string    // list of annotations to show in output
 	NaturalSort     bool        // sort resource names in natural order
+
+	// Annotate action options
+	Annotate AnnotateConfig // parsed annotation additions and removals
 
 	// Pod related options
 	PodStatus      v1.PodPhase // only for pods, e.g. "Running", "Pending", etc.

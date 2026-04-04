@@ -17,7 +17,7 @@ Find resource based on
 - **image name** (for pods only)
 - **jq filter** - custom condition
 
-and then **print, patch or delete** any.
+and then **print, patch, annotate or delete** any.
 
 ## Usage
 
@@ -43,6 +43,7 @@ Flags:
   -h, --help                           help for kubectl find
   -p, --patch string                   Patch all found resources with the specified JSON patch.
   -e, --exec string                    Execute a command on all found pods.
+      --annotate string                Annotate all found resources; format: k=v[,k2=v2] to add/overwrite or k- to remove annotations.
       --delete                         Delete all matched resources.
   -y, --skip-confirm                   Skip confirmation prompt before performing actions on resources.
       --force                          If true, immediately remove resources from API and bypass graceful deletion. Can only be used with --delete flag.
@@ -109,6 +110,26 @@ kubectl fd pods -l app=nginx --exec 'nginx -s reload'
 
 ```shell
 kubectl fd pods --status failed -A --delete
+```
+
+### Annotate resources
+
+#### Add annotations to matching pods
+
+```shell
+kubectl fd pods -r nginx --annotate 'team=backend,env=production'
+```
+
+#### Remove an annotation from all matching pods
+
+```shell
+kubectl fd pods --status Running --annotate 'deprecated-'
+```
+
+#### Mix additions and removals
+
+```shell
+kubectl fd pods -l app=nginx --annotate 'owner=team-a,old-owner-'
 ```
 
 ### Find restarted pods
