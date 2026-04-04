@@ -1,3 +1,9 @@
+## v0.14.0 (2026-04-04)
+
+### Feat
+
+- add support for `--annotate` action with kubectl-style `k=v` and `k-` syntax (#35)
+
 ## v0.13.0 (2026-03-21)
 
 ### Feat
