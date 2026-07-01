@@ -1,3 +1,0 @@
-inputs:
-  nixpkgs-stable:
-    url: github:nixos/nixpkgs/nixpkgs-24.11-darwin
