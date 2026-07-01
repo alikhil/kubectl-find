@@ -72,6 +72,13 @@ var NodeType = schema.GroupVersionResource{
 	Version:  "v1",
 }
 
+//nolint:gochecknoglobals
+var ApplicationType = schema.GroupVersionResource{
+	Resource: "applications",
+	Group:    "argoproj.io",
+	Version:  "v1alpha1",
+}
+
 type Action int
 
 const (

@@ -279,6 +279,73 @@ func Test_GetColumnsForDaemonSets(t *testing.T) {
 	require.Equal(t, "5", columns[4].Value(obj))
 }
 
+func Test_GetColumnsForApplications(t *testing.T) {
+	application := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"finalizers": []interface{}{"resources-finalizer.argocd.argoproj.io"},
+			},
+			"spec": map[string]interface{}{
+				"syncPolicy": map[string]interface{}{
+					"automated": map[string]interface{}{
+						"prune":    true,
+						"selfHeal": true,
+					},
+				},
+			},
+			"status": map[string]interface{}{
+				"health": map[string]interface{}{
+					"status": "Healthy",
+				},
+				"sync": map[string]interface{}{
+					"status": "Synced",
+				},
+			},
+		},
+	}
+
+	columns := GetColumnsFor(HandlerOptions{}, Resource{GroupVersionResource: ApplicationType})
+	require.Len(t, columns, 6)
+
+	require.Equal(t, "HEALTH", columns[0].Header)
+	require.Equal(t, "Healthy", columns[0].Value(application))
+	require.Equal(t, "SYNC", columns[1].Header)
+	require.Equal(t, "Synced", columns[1].Value(application))
+	require.Equal(t, "AUTO-SYNC", columns[2].Header)
+	require.Equal(t, "true", columns[2].Value(application))
+	require.Equal(t, "SELF-HEAL", columns[3].Header)
+	require.Equal(t, "true", columns[3].Value(application))
+	require.Equal(t, "PRUNE", columns[4].Header)
+	require.Equal(t, "true", columns[4].Value(application))
+	require.Equal(t, "FINALIZERS", columns[5].Header)
+	require.Equal(t, "resources-finalizer.argocd.argoproj.io", columns[5].Value(application))
+}
+
+func Test_GetColumnsForApplications_Defaults(t *testing.T) {
+	application := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"status": map[string]interface{}{
+				"health": map[string]interface{}{
+					"status": "Progressing",
+				},
+				"sync": map[string]interface{}{
+					"status": "OutOfSync",
+				},
+			},
+		},
+	}
+
+	columns := GetColumnsFor(HandlerOptions{}, Resource{GroupVersionResource: ApplicationType})
+	require.Len(t, columns, 6)
+
+	require.Equal(t, "Progressing", columns[0].Value(application))
+	require.Equal(t, "OutOfSync", columns[1].Value(application))
+	require.Equal(t, "false", columns[2].Value(application))
+	require.Equal(t, "false", columns[3].Value(application))
+	require.Equal(t, "false", columns[4].Value(application))
+	require.Equal(t, NoneStr, columns[5].Value(application))
+}
+
 func Test_GetAnnotationColumns(t *testing.T) {
 	tests := []struct {
 		name        string

@@ -449,6 +449,82 @@ func getColumnsForDaemonSets() []printers.Column {
 	}
 }
 
+func boolString(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
+}
+
+func getApplicationAutomatedSync(obj unstructured.Unstructured) map[string]interface{} {
+	automated, found, _ := unstructured.NestedMap(obj.Object, "spec", "syncPolicy", "automated")
+	if !found {
+		return nil
+	}
+	return automated
+}
+
+func getColumnsForApplications() []printers.Column {
+	return []printers.Column{
+		{
+			Header: "HEALTH",
+			Value: func(obj unstructured.Unstructured) string {
+				if status, found, _ := unstructured.NestedString(obj.Object, "status", "health", "status"); found {
+					return status
+				}
+				return UnknownStr
+			},
+		},
+		{
+			Header: "SYNC",
+			Value: func(obj unstructured.Unstructured) string {
+				if status, found, _ := unstructured.NestedString(obj.Object, "status", "sync", "status"); found {
+					return status
+				}
+				return UnknownStr
+			},
+		},
+		{
+			Header: "AUTO-SYNC",
+			Value: func(obj unstructured.Unstructured) string {
+				return boolString(getApplicationAutomatedSync(obj) != nil)
+			},
+		},
+		{
+			Header: "SELF-HEAL",
+			Value: func(obj unstructured.Unstructured) string {
+				automated := getApplicationAutomatedSync(obj)
+				if automated == nil {
+					return "false"
+				}
+				selfHeal, _ := automated["selfHeal"].(bool)
+				return boolString(selfHeal)
+			},
+		},
+		{
+			Header: "PRUNE",
+			Value: func(obj unstructured.Unstructured) string {
+				automated := getApplicationAutomatedSync(obj)
+				if automated == nil {
+					return "false"
+				}
+				prune, _ := automated["prune"].(bool)
+				return boolString(prune)
+			},
+		},
+		{
+			Header: "FINALIZERS",
+			Value: func(obj unstructured.Unstructured) string {
+				finalizers := obj.GetFinalizers()
+				if len(finalizers) == 0 {
+					return NoneStr
+				}
+				return strings.Join(finalizers, ",")
+			},
+		},
+	}
+}
+
 func GetColumnsFor(opts HandlerOptions, resourceType Resource) []printers.Column {
 	switch resourceType.GroupVersionResource {
 	case PodType:
@@ -465,6 +541,8 @@ func GetColumnsFor(opts HandlerOptions, resourceType Resource) []printers.Column
 		return getColumnsForDaemonSets()
 	case NodeType:
 		return getColumnsForNodes()
+	case ApplicationType:
+		return getColumnsForApplications()
 	default:
 
 		if !isBuiltin(scheme.Scheme, resourceType.GroupVersionKind) {
