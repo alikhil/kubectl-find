@@ -449,13 +449,6 @@ func getColumnsForDaemonSets() []printers.Column {
 	}
 }
 
-func boolString(value bool) string {
-	if value {
-		return "true"
-	}
-	return "false"
-}
-
 func getApplicationAutomatedSync(obj unstructured.Unstructured) map[string]interface{} {
 	automated, found, _ := unstructured.NestedMap(obj.Object, "spec", "syncPolicy", "automated")
 	if !found {
@@ -487,7 +480,7 @@ func getColumnsForApplications() []printers.Column {
 		{
 			Header: "AUTO-SYNC",
 			Value: func(obj unstructured.Unstructured) string {
-				return boolString(getApplicationAutomatedSync(obj) != nil)
+				return strconv.FormatBool(getApplicationAutomatedSync(obj) != nil)
 			},
 		},
 		{
@@ -495,10 +488,10 @@ func getColumnsForApplications() []printers.Column {
 			Value: func(obj unstructured.Unstructured) string {
 				automated := getApplicationAutomatedSync(obj)
 				if automated == nil {
-					return "false"
+					return strconv.FormatBool(false)
 				}
 				selfHeal, _ := automated["selfHeal"].(bool)
-				return boolString(selfHeal)
+				return strconv.FormatBool(selfHeal)
 			},
 		},
 		{
@@ -506,10 +499,10 @@ func getColumnsForApplications() []printers.Column {
 			Value: func(obj unstructured.Unstructured) string {
 				automated := getApplicationAutomatedSync(obj)
 				if automated == nil {
-					return "false"
+					return strconv.FormatBool(false)
 				}
 				prune, _ := automated["prune"].(bool)
-				return boolString(prune)
+				return strconv.FormatBool(prune)
 			},
 		},
 		{
