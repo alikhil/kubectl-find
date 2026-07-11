@@ -346,6 +346,29 @@ func Test_GetColumnsForApplications_Defaults(t *testing.T) {
 	require.Equal(t, NoneStr, columns[5].Value(application))
 }
 
+func Test_GetColumnsForApplications_AutoSyncDisabled(t *testing.T) {
+	application := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"spec": map[string]interface{}{
+				"syncPolicy": map[string]interface{}{
+					"automated": map[string]interface{}{
+						"enabled":  false,
+						"prune":    true,
+						"selfHeal": true,
+					},
+				},
+			},
+		},
+	}
+
+	columns := GetColumnsFor(HandlerOptions{}, Resource{GroupVersionResource: ApplicationType})
+	require.Len(t, columns, 6)
+
+	require.Equal(t, "false", columns[2].Value(application))
+	require.Equal(t, "true", columns[3].Value(application))
+	require.Equal(t, "true", columns[4].Value(application))
+}
+
 func Test_GetAnnotationColumns(t *testing.T) {
 	tests := []struct {
 		name        string

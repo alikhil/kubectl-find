@@ -457,6 +457,18 @@ func getApplicationAutomatedSync(obj unstructured.Unstructured) map[string]inter
 	return automated
 }
 
+func isApplicationAutoSyncEnabled(obj unstructured.Unstructured) bool {
+	automated := getApplicationAutomatedSync(obj)
+	if automated == nil {
+		return false
+	}
+	enabled, found := automated["enabled"].(bool)
+	if !found {
+		return true
+	}
+	return enabled
+}
+
 func getColumnsForApplications() []printers.Column {
 	return []printers.Column{
 		{
@@ -480,7 +492,7 @@ func getColumnsForApplications() []printers.Column {
 		{
 			Header: "AUTO-SYNC",
 			Value: func(obj unstructured.Unstructured) string {
-				return strconv.FormatBool(getApplicationAutomatedSync(obj) != nil)
+				return strconv.FormatBool(isApplicationAutoSyncEnabled(obj))
 			},
 		},
 		{
