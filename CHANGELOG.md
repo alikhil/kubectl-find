@@ -1,3 +1,10 @@
+## v0.15.1 (2026-07-11)
+
+### Fix
+
+- argocd auto-sync column in k fd applications
+- satisfy goconst for Argo CD columns
+
 ## v0.15.0 (2026-07-02)
 
 ### Feat
