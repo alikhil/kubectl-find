@@ -1,7 +1,6 @@
 # kubectl find
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/alikhil/kubectl-find)
-[![Go Report Card](https://goreportcard.com/badge/github.com/alikhil/kubectl-find)](https://goreportcard.com/report/github.com/alikhil/kubectl-find)
 ![GitHub License](https://img.shields.io/github/license/alikhil/kubectl-find)
 
 It's a plugin for `kubectl` that gives you a **UNIX find**-like experience.
