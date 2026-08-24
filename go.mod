@@ -14,7 +14,7 @@ require (
 	github.com/stretchr/testify v1.12.0
 	go.uber.org/mock v0.6.0
 	k8s.io/api v0.38.0-alpha.0
-	k8s.io/apiextensions-apiserver v0.36.3
+	k8s.io/apiextensions-apiserver v0.36.4
 	k8s.io/apimachinery v0.38.0-alpha.0
 	k8s.io/cli-runtime v0.38.0-alpha.0
 	k8s.io/client-go v0.38.0-alpha.0
