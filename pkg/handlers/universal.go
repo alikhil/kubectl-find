@@ -14,6 +14,7 @@ import (
 	"github.com/alikhil/kubectl-find/pkg/sortby"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	k8s_types "k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/dynamic"
@@ -222,7 +223,16 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 }
 
 func (h *UniversalHandler) resourceMatches(resource unstructured.Unstructured, options *ActionOptions) bool {
+	if options.ExcludedNamespace != "" && resource.GetNamespace() == options.ExcludedNamespace {
+		return false
+	}
 	if options.NameRegex != nil && !options.NameRegex.MatchString(resource.GetName()) {
+		return false
+	}
+	if options.ExcludedNameRegex != nil && options.ExcludedNameRegex.MatchString(resource.GetName()) {
+		return false
+	}
+	if options.ExcludedLabelSelector != nil && options.ExcludedLabelSelector.Matches(labels.Set(resource.GetLabels())) {
 		return false
 	}
 
@@ -241,7 +251,12 @@ func (h *UniversalHandler) resourceMatches(resource unstructured.Unstructured, o
 		if err != nil || !matches {
 			return false
 		}
-		return true
+	}
+	if options.ExcludedJQQuery != nil {
+		matches, err := pkg.MatchesWithGoJQ(resource.Object, options.ExcludedJQQuery)
+		if err == nil && matches {
+			return false
+		}
 	}
 
 	if h.opts.ResourceMatcher != nil {

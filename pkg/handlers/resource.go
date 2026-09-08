@@ -8,6 +8,7 @@ import (
 	"github.com/alikhil/kubectl-find/pkg/printers"
 	"github.com/itchyny/gojq"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8s_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -203,32 +204,40 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 }
 
 type ActionOptions struct {
-	Namespace       string
-	LabelSelector   string
-	Action          Action
-	NameRegex       *regexp.Regexp
-	MinAge          time.Duration
-	MaxAge          time.Duration
-	SkipConfirm     bool        // skip confirmation prompt before performing actions
-	Force           bool        // immediately remove resources from API and bypass graceful deletion (only for delete action)
-	ResourceType    Resource    // type of resource being handled
-	JQQuery         *gojq.Query // field selector to filter resources
-	ShowLabels      []string    // list of labels to show in output
-	ShowAnnotations []string    // list of annotations to show in output
-	NaturalSort     bool        // sort resource names in natural order
+	Namespace             string
+	ExcludedNamespace     string
+	LabelSelector         string
+	ExcludedLabelSelector labels.Selector
+	Action                Action
+	NameRegex             *regexp.Regexp
+	ExcludedNameRegex     *regexp.Regexp
+	MinAge                time.Duration
+	MaxAge                time.Duration
+	SkipConfirm           bool        // skip confirmation prompt before performing actions
+	Force                 bool        // immediately remove resources from API and bypass graceful deletion (only for delete action)
+	ResourceType          Resource    // type of resource being handled
+	JQQuery               *gojq.Query // field selector to filter resources
+	ExcludedJQQuery       *gojq.Query
+	ShowLabels            []string // list of labels to show in output
+	ShowAnnotations       []string // list of annotations to show in output
+	NaturalSort           bool     // sort resource names in natural order
 
 	// Annotate action options
 	Annotate AnnotateConfig // parsed annotation additions and removals
 
 	// Pod related options
-	PodStatus      v1.PodPhase // only for pods, e.g. "Running", "Pending", etc.
-	Patch          string
-	PatchStrategy  k8s_types.PatchType // type of patch to apply, e.g. "json", "merge", etc.
-	Exec           string              // command to execute on pods
-	NodeNameRegex  *regexp.Regexp      // filter pods by node name, only applicable for pod resources
-	Restarted      bool                // only for pods, find pods that have been restarted at least once
-	ImageRegex     *regexp.Regexp      // filter pods by container image, only applicable for pod resources
-	ShowNodeLabels []string            // list of node labels to show, only applicable for pod resources
+	PodStatus             v1.PodPhase // only for pods, e.g. "Running", "Pending", etc.
+	ExcludedPodStatus     v1.PodPhase
+	Patch                 string
+	PatchStrategy         k8s_types.PatchType // type of patch to apply, e.g. "json", "merge", etc.
+	Exec                  string              // command to execute on pods
+	NodeNameRegex         *regexp.Regexp      // filter pods by node name, only applicable for pod resources
+	ExcludedNodeNameRegex *regexp.Regexp
+	Restarted             bool // only for pods, find pods that have been restarted at least once
+	ExcludeRestarted      bool
+	ImageRegex            *regexp.Regexp // filter pods by container image, only applicable for pod resources
+	ExcludedImageRegex    *regexp.Regexp
+	ShowNodeLabels        []string // list of node labels to show, only applicable for pod resources
 
 	// Node related options
 	NodeConditions []NodeCondition // filter nodes by conditions, only applicable for node resources

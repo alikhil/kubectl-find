@@ -16,6 +16,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8s_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -298,7 +299,16 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 	regex := opts.NameRegex
 
 	return func(pod *v1.Pod) bool {
+		if opts.ExcludedNamespace != "" && pod.Namespace == opts.ExcludedNamespace {
+			return false
+		}
 		if regex != nil && !regex.MatchString(pod.Name) {
+			return false
+		}
+		if opts.ExcludedNameRegex != nil && opts.ExcludedNameRegex.MatchString(pod.Name) {
+			return false
+		}
+		if opts.ExcludedLabelSelector != nil && opts.ExcludedLabelSelector.Matches(labels.Set(pod.Labels)) {
 			return false
 		}
 		if opts.MinAge != 0 {
@@ -316,6 +326,9 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 				return false
 			}
 		}
+		if opts.ExcludedPodStatus != "" && pod.Status.Phase == opts.ExcludedPodStatus {
+			return false
+		}
 		if opts.NodeNameRegex != nil {
 			nodeName := pod.Spec.NodeName
 			if nodeName == "" {
@@ -328,25 +341,56 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 				return false
 			}
 		}
+		if opts.ExcludedNodeNameRegex != nil {
+			nodeName := pod.Spec.NodeName
+			if nodeName == "" {
+				nodeName = pod.Status.NominatedNodeName
+			}
+			if opts.ExcludedNodeNameRegex.MatchString(nodeName) {
+				return false
+			}
+		}
 		if opts.Restarted {
+			restarted := false
 			for _, cs := range pod.Status.ContainerStatuses {
 				if cs.RestartCount > 0 {
-					return true
+					restarted = true
+					break
 				}
 			}
-			return false
+			if !restarted {
+				return false
+			}
+		}
+		if opts.ExcludeRestarted {
+			for _, cs := range pod.Status.ContainerStatuses {
+				if cs.RestartCount > 0 {
+					return false
+				}
+			}
 		}
 		if opts.ImageRegex != nil {
 			allContainers := make([]v1.Container, 0, len(pod.Spec.Containers)+len(pod.Spec.InitContainers))
 			allContainers = append(allContainers, pod.Spec.Containers...)
 			allContainers = append(allContainers, pod.Spec.InitContainers...)
 
+			matchesImage := false
 			for _, container := range allContainers {
 				if opts.ImageRegex.MatchString(container.Image) {
-					return true
+					matchesImage = true
+					break
 				}
 			}
-			return false
+			if !matchesImage {
+				return false
+			}
+		}
+		if opts.ExcludedImageRegex != nil {
+			for _, container := range append(append([]v1.Container{}, pod.Spec.Containers...), pod.Spec.InitContainers...) {
+				if opts.ExcludedImageRegex.MatchString(container.Image) {
+					return false
+				}
+			}
 		}
 		if opts.JQQuery != nil {
 			var unstr map[string]interface{}
@@ -355,7 +399,14 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 			if err != nil || !matches {
 				return false
 			}
-			return true
+		}
+		if opts.ExcludedJQQuery != nil {
+			var unstr map[string]interface{}
+			unstr, _ = runtime.DefaultUnstructuredConverter.ToUnstructured(pod)
+			matches, err := pkg.MatchesWithGoJQ(unstr, opts.ExcludedJQQuery)
+			if err == nil && matches {
+				return false
+			}
 		}
 		return true
 	}

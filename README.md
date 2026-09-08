@@ -16,6 +16,18 @@ Find resource based on
 - **image name** (for pods only)
 - **jq filter** - custom condition
 
+Use `--not` before a filter to exclude its matches. It remains active for later
+filters, so place inclusive filters before it:
+
+```shell
+kubectl fd pods -r "prod" --not -r "beta"
+kubectl fd pods -l app=nginx --not -l version=1.20
+kubectl fd pods --host host-1 --not --restarted
+kubectl fd pods --not -n kube-system
+```
+
+`--not -n <namespace>` searches all namespaces and excludes that namespace.
+
 and then **print, patch, annotate or delete** any.
 
 ## Usage

@@ -22,11 +22,15 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/itchyny/gojq"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/alikhil/kubectl-find/pkg"
 	"github.com/alikhil/kubectl-find/pkg/handlers"
@@ -71,6 +75,8 @@ type FindOptions struct {
 	configFlags *genericclioptions.ConfigFlags
 
 	userSpecifiedNamespace string
+	excludedNamespace      string
+	namespaceSpecified     bool
 
 	rawConfig api.Config
 	rest      *rest.Config
@@ -93,6 +99,15 @@ type FindOptions struct {
 	imageRegex    string
 	jqFilter      string
 	naturalSort   bool
+	not           bool
+
+	excludedRegex         string
+	excludedLabelSelector string
+	excludedPodStatus     string
+	excludedNodeNameRegex string
+	excludedImageRegex    string
+	excludedJQFilter      string
+	excludeRestarted      bool
 
 	nodeConditions []string
 
@@ -109,6 +124,78 @@ type FindOptions struct {
 	genericiooptions.IOStreams
 }
 
+// negatableStringValue directs values to either a normal flag or its exclusion
+// value based on whether --not has already appeared on the command line.
+type negatableStringValue struct {
+	value    *string
+	excluded *string
+	not      *bool
+}
+
+func (v *negatableStringValue) String() string {
+	if v.value == nil {
+		return ""
+	}
+	return *v.value
+}
+
+func (v *negatableStringValue) Set(value string) error {
+	if *v.not {
+		*v.excluded = value
+		return nil
+	}
+	*v.value = value
+	return nil
+}
+
+func (*negatableStringValue) Type() string { return "string" }
+
+func newNegatableStringValue(value *string, excluded *string, not *bool) pflag.Value {
+	return &negatableStringValue{value: value, excluded: excluded, not: not}
+}
+
+type negatableBoolValue struct {
+	value    *bool
+	excluded *bool
+	not      *bool
+}
+
+func (v *negatableBoolValue) String() string { return strconv.FormatBool(*v.value) }
+
+func (v *negatableBoolValue) Set(value string) error {
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return err
+	}
+	if *v.not {
+		*v.excluded = parsed
+		return nil
+	}
+	*v.value = parsed
+	return nil
+}
+
+func (*negatableBoolValue) Type() string     { return "bool" }
+func (*negatableBoolValue) IsBoolFlag() bool { return true }
+
+type negatablePFlagValue struct {
+	value    pflag.Value
+	excluded *string
+	included *bool
+	negated  *bool
+}
+
+func (v *negatablePFlagValue) String() string { return v.value.String() }
+func (v *negatablePFlagValue) Type() string   { return v.value.Type() }
+func (v *negatablePFlagValue) Set(value string) error {
+	if *v.negated {
+		*v.excluded = value
+		return nil
+	}
+	*v.included = true
+	return v.value.Set(value)
+}
+
 // NewFindOptions provides an instance of FindOptions with default values.
 func NewFindOptions(streams genericiooptions.IOStreams) *FindOptions {
 	return &FindOptions{
@@ -122,7 +209,12 @@ func NewFindOptions(streams genericiooptions.IOStreams) *FindOptions {
 // NewCmdFind provides a cobra command wrapping FindOptions.
 func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 	o := NewFindOptions(streams)
+	return newCmdFind(o)
+}
 
+// newCmdFind builds the command with the supplied options. Keeping construction
+// separate lets command-level tests verify Cobra's argument parsing directly.
+func newCmdFind(o *FindOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "find [resource type] [flags]",
 		Short:        "Find kubernetes resources and perform actions on them",
@@ -148,12 +240,14 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 	}
 
 	cmd.Flags().
-		StringVarP(&o.regex, "name", "r", "", "Regular expression to match resource names against; if not specified, all resources of the specified type will be returned.")
+		VarP(newNegatableStringValue(&o.regex, &o.excludedRegex, &o.not), "name", "r", "Regular expression to match resource names against; if not specified, all resources of the specified type will be returned.")
 	cmd.Flags().
-		StringVar(&o.podStatus, "status", "", "Filter pods by their status (phase); e.g. 'Running', 'Pending', 'Succeeded', 'Failed', 'Unknown'.")
+		Var(newNegatableStringValue(&o.podStatus, &o.excludedPodStatus, &o.not), "status", "Filter pods by their status (phase); e.g. 'Running', 'Pending', 'Succeeded', 'Failed', 'Unknown'.")
 	cmd.Flags().
 		BoolVarP(&o.allNamespaces, "all-namespaces", "A", false, "Search in all namespaces; if not specified, only the current namespace will be searched.")
-	cmd.Flags().StringVarP(&o.labelSelector, "selector", "l", "", "Label selector to filter resources by labels.")
+	cmd.Flags().
+		VarP(newNegatableStringValue(&o.labelSelector, &o.excludedLabelSelector, &o.not), "selector", "l", "Label selector to filter resources by labels.")
+	cmd.Flags().BoolVar(&o.not, "not", false, "Negate every following filter flag.")
 	cmd.Flags().BoolVar(&o.delete, "delete", false, "Delete all matched resources.")
 	cmd.Flags().StringVarP(&o.exec, "exec", "e", "", "Execute a command on all found pods.")
 	cmd.Flags().StringVarP(&o.patch, "patch", "p", "", "Patch all found resources with the specified JSON patch.")
@@ -168,13 +262,16 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 	cmd.Flags().
 		BoolVar(&o.force, "force", false, "If true, immediately remove resources from API and bypass graceful deletion. Can only be used with --delete flag.")
 	cmd.Flags().
-		StringVar(&o.nodeNameRegex, "node", "", "Filter pods by node name regex; Uses pod.Spec.NodeName or pod.Status.NominatedNodeName if the former is empty.")
+		Var(newNegatableStringValue(&o.nodeNameRegex, &o.excludedNodeNameRegex, &o.not), "node", "Filter pods by node name regex; Uses pod.Spec.NodeName or pod.Status.NominatedNodeName if the former is empty.")
 	cmd.Flags().
-		BoolVar(&o.restarted, "restarted", false, "Find pods that have been restarted at least once.")
+		Var(newNegatableStringValue(&o.nodeNameRegex, &o.excludedNodeNameRegex, &o.not), "host", "Alias for --node.")
 	cmd.Flags().
-		StringVar(&o.imageRegex, "image", "", "Regular expression to match container images against.")
+		Var(&negatableBoolValue{value: &o.restarted, excluded: &o.excludeRestarted, not: &o.not}, "restarted", "Find pods that have been restarted at least once.")
+	cmd.Flags().Lookup("restarted").NoOptDefVal = "true"
 	cmd.Flags().
-		StringVarP(&o.jqFilter, "jq", "j", "", "jq expression to filter resources; Uses gojq library for evaluation.")
+		Var(newNegatableStringValue(&o.imageRegex, &o.excludedImageRegex, &o.not), "image", "Regular expression to match container images against.")
+	cmd.Flags().
+		VarP(newNegatableStringValue(&o.jqFilter, &o.excludedJQFilter, &o.not), "jq", "j", "jq expression to filter resources; Uses gojq library for evaluation.")
 	cmd.Flags().
 		StringSliceVarP(&o.showNodeLabels, "node-labels", "N", nil, "Comma-separated list of node labels to show.")
 	cmd.Flags().
@@ -183,11 +280,17 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 		StringSliceVarP(&o.showAnnotations, "annotations", "T", nil, "Comma-separated list of annotations to show.")
 	cmd.Flags().
 		BoolVar(&o.naturalSort, "natural-sort", false, "Sort resource names in natural order.")
-	cmd.Flags().
-		StringSliceVar(&o.nodeConditions, "node-condition", nil,
-			"Filter nodes by conditions; format: ConditionType=Status (e.g. 'Ready=True', 'DiskPressure=False'). Supports custom conditions from NPD or other agents.")
+	cmd.Flags().StringSliceVar(&o.nodeConditions, "node-condition", nil,
+		"Filter nodes by conditions; format: ConditionType=Status (e.g. 'Ready=True', 'DiskPressure=False'). Supports custom conditions from NPD or other agents.")
 
 	o.configFlags.AddFlags(cmd.Flags())
+	namespaceFlag := cmd.Flags().Lookup("namespace")
+	namespaceFlag.Value = &negatablePFlagValue{
+		value:    namespaceFlag.Value,
+		excluded: &o.excludedNamespace,
+		included: &o.namespaceSpecified,
+		negated:  &o.not,
+	}
 
 	return cmd
 }
@@ -224,6 +327,10 @@ func (o *FindOptions) Complete(cmd *cobra.Command, args []string) error {
 
 	if o.userSpecifiedNamespace != "" && o.allNamespaces {
 		return errors.New("cannot specify both --namespace and --all-namespaces flags")
+	}
+	if o.excludedNamespace != "" && !o.namespaceSpecified {
+		o.allNamespaces = true
+		o.userSpecifiedNamespace = ""
 	}
 
 	// if no namespace argument or flag value was specified, then use the current context's namespace
@@ -401,6 +508,13 @@ func (o *FindOptions) Validate() error {
 			return fmt.Errorf("invalid regex %q: %w", o.regex, err)
 		}
 	}
+	var excludedRegex *regexp.Regexp
+	if o.excludedRegex != "" {
+		excludedRegex, err = regexp.Compile(o.excludedRegex)
+		if err != nil {
+			return fmt.Errorf("invalid excluded regex %q: %w", o.excludedRegex, err)
+		}
+	}
 
 	var minAge, maxAge time.Duration
 
@@ -424,6 +538,23 @@ func (o *FindOptions) Validate() error {
 			return fmt.Errorf("invalid pod status %q, must be one of: %v", o.podStatus, handlers.ValidPodStatuses)
 		}
 	}
+	var excludedPodStatus v1.PodPhase
+	if o.excludedPodStatus != "" {
+		if o.resourceType.GroupVersionResource != handlers.PodType {
+			return fmt.Errorf(
+				"status filtering is only supported for pods, but got %q",
+				o.resourceType.GroupVersionResource.String(),
+			)
+		}
+		if !handlers.IsValidPodStatus(o.excludedPodStatus) {
+			return fmt.Errorf(
+				"invalid pod status %q, must be one of: %v",
+				o.excludedPodStatus,
+				handlers.ValidPodStatuses,
+			)
+		}
+		excludedPodStatus = handlers.ToPodPhase(o.excludedPodStatus)
+	}
 
 	if o.showNodeLabels != nil && o.resourceType.GroupVersionResource != handlers.PodType {
 		return fmt.Errorf("showing node labels is only supported for pods, but got %q",
@@ -440,6 +571,19 @@ func (o *FindOptions) Validate() error {
 			return fmt.Errorf("invalid node name regex filter %q: %w", o.nodeNameRegex, err)
 		}
 	}
+	var excludedNodeNameRegex *regexp.Regexp
+	if o.excludedNodeNameRegex != "" {
+		excludedNodeNameRegex, err = regexp.Compile(o.excludedNodeNameRegex)
+		if err != nil {
+			return fmt.Errorf("invalid excluded node name regex %q: %w", o.excludedNodeNameRegex, err)
+		}
+	}
+	if excludedNodeNameRegex != nil && o.resourceType.GroupVersionResource != handlers.PodType {
+		return fmt.Errorf(
+			"node filtering is only supported for pods, but got %q",
+			o.resourceType.GroupVersionResource.String(),
+		)
+	}
 
 	var imagesRegex *regexp.Regexp
 	if o.imageRegex != "" {
@@ -451,6 +595,19 @@ func (o *FindOptions) Validate() error {
 			return fmt.Errorf("invalid image regex filter %q: %w", o.imageRegex, err)
 		}
 	}
+	var excludedImageRegex *regexp.Regexp
+	if o.excludedImageRegex != "" {
+		excludedImageRegex, err = regexp.Compile(o.excludedImageRegex)
+		if err != nil {
+			return fmt.Errorf("invalid excluded image regex %q: %w", o.excludedImageRegex, err)
+		}
+	}
+	if excludedImageRegex != nil && o.resourceType.GroupVersionResource != handlers.PodType {
+		return fmt.Errorf(
+			"image filtering is only supported for pods, but got %q",
+			o.resourceType.GroupVersionResource.String(),
+		)
+	}
 	var jqQuery *gojq.Query
 	if o.jqFilter != "" {
 		jqQuery, err = pkg.PrepareQuery(o.jqFilter)
@@ -460,6 +617,25 @@ func (o *FindOptions) Validate() error {
 		if jqQuery == nil {
 			return fmt.Errorf("invalid jq filter %q", o.jqFilter)
 		}
+	}
+	var excludedJQQuery *gojq.Query
+	if o.excludedJQFilter != "" {
+		excludedJQQuery, err = pkg.PrepareQuery(o.excludedJQFilter)
+		if err != nil || excludedJQQuery == nil {
+			if err != nil {
+				return fmt.Errorf("invalid jq filter %q: %w", o.excludedJQFilter, err)
+			}
+			return fmt.Errorf("invalid jq filter %q", o.excludedJQFilter)
+		}
+	}
+
+	var excludedLabelSelector labels.Selector
+	if o.excludedLabelSelector != "" {
+		parsed, parseErr := labels.Parse(o.excludedLabelSelector)
+		if parseErr != nil {
+			return fmt.Errorf("invalid excluded label selector %q: %w", o.excludedLabelSelector, parseErr)
+		}
+		excludedLabelSelector = parsed
 	}
 
 	var nodeConditions []handlers.NodeCondition
@@ -486,29 +662,37 @@ func (o *FindOptions) Validate() error {
 	}
 
 	o.options = handlers.ActionOptions{
-		Namespace:       o.userSpecifiedNamespace,
-		Action:          action,
-		NameRegex:       reg,
-		MaxAge:          maxAge,
-		MinAge:          minAge,
-		LabelSelector:   o.labelSelector, // todo: add validation for label selector
-		Streams:         &o.IOStreams,
-		JQQuery:         jqQuery,
-		NodeNameRegex:   nodeNameRegex,
-		SkipConfirm:     o.skipConfirm,
-		Force:           o.force,
-		PodStatus:       handlers.ToPodPhase(o.podStatus),
-		Exec:            o.exec,
-		Patch:           o.patch,
-		Annotate:        annotateCfg,
-		ResourceType:    o.resourceType,
-		Restarted:       o.restarted,
-		ImageRegex:      imagesRegex,
-		ShowNodeLabels:  o.showNodeLabels,
-		ShowLabels:      o.showLabels,
-		ShowAnnotations: o.showAnnotations,
-		NaturalSort:     o.naturalSort,
-		NodeConditions:  nodeConditions,
+		Namespace:             o.userSpecifiedNamespace,
+		ExcludedNamespace:     o.excludedNamespace,
+		Action:                action,
+		NameRegex:             reg,
+		ExcludedNameRegex:     excludedRegex,
+		MaxAge:                maxAge,
+		MinAge:                minAge,
+		LabelSelector:         o.labelSelector, // todo: add validation for label selector
+		ExcludedLabelSelector: excludedLabelSelector,
+		Streams:               &o.IOStreams,
+		JQQuery:               jqQuery,
+		ExcludedJQQuery:       excludedJQQuery,
+		NodeNameRegex:         nodeNameRegex,
+		ExcludedNodeNameRegex: excludedNodeNameRegex,
+		SkipConfirm:           o.skipConfirm,
+		Force:                 o.force,
+		PodStatus:             handlers.ToPodPhase(o.podStatus),
+		ExcludedPodStatus:     excludedPodStatus,
+		Exec:                  o.exec,
+		Patch:                 o.patch,
+		Annotate:              annotateCfg,
+		ResourceType:          o.resourceType,
+		Restarted:             o.restarted,
+		ExcludeRestarted:      o.excludeRestarted,
+		ImageRegex:            imagesRegex,
+		ExcludedImageRegex:    excludedImageRegex,
+		ShowNodeLabels:        o.showNodeLabels,
+		ShowLabels:            o.showLabels,
+		ShowAnnotations:       o.showAnnotations,
+		NaturalSort:           o.naturalSort,
+		NodeConditions:        nodeConditions,
 	}
 
 	return nil
