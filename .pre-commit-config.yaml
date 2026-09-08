@@ -10,8 +10,10 @@ repos:
 - hooks:
   - args:
     - --timeout=3m
+    - ./...
     id: golangci-lint
     name: golangci-lint
+    pass_filenames: false
   repo: https://github.com/golangci/golangci-lint
   rev: v2.12.2
 - hooks:
