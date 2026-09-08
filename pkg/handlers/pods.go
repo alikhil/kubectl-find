@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8s_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -329,6 +330,12 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 		if opts.ExcludedPodStatus != "" && pod.Status.Phase == opts.ExcludedPodStatus {
 			return false
 		}
+		if opts.Controller != nil && !hasDirectController(pod, *opts.Controller) {
+			return false
+		}
+		if opts.ExcludedController != nil && hasDirectController(pod, *opts.ExcludedController) {
+			return false
+		}
 		if opts.NodeNameRegex != nil {
 			nodeName := pod.Spec.NodeName
 			if nodeName == "" {
@@ -410,6 +417,19 @@ func (p *PodHandler) getMatcher(opts ActionOptions) func(pod *v1.Pod) bool {
 		}
 		return true
 	}
+}
+
+func hasDirectController(pod *v1.Pod, expected schema.GroupKind) bool {
+	for _, owner := range pod.OwnerReferences {
+		if owner.Controller == nil || !*owner.Controller || owner.Kind != expected.Kind {
+			continue
+		}
+		groupVersion, err := schema.ParseGroupVersion(owner.APIVersion)
+		if err == nil && groupVersion.Group == expected.Group {
+			return true
+		}
+	}
+	return false
 }
 
 // IsExecutable implements ResourceHandler.

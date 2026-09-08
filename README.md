@@ -14,6 +14,7 @@ Find resource based on
 - **node name** (for pods only)
 - **restarts** (for pods only)
 - **image name** (for pods only)
+- **direct controller** (for pods only)
 - **jq filter** - custom condition
 
 Use `--not` before a filter to exclude its matches. It remains active for later
@@ -24,6 +25,7 @@ kubectl fd pods -r "prod" --not -r "beta"
 kubectl fd pods -l app=nginx --not -l version=1.20
 kubectl fd pods --host host-1 --not --restarted
 kubectl fd pods --not -n kube-system
+kubectl fd pods --not --controller apps/daemonsets
 ```
 
 `--not -n <namespace>` searches all namespaces and excludes that namespace.
@@ -41,6 +43,7 @@ Flags:
   -A, --all-namespaces                 Search in all namespaces; if not specified, only the current namespace will be searched.
       --status string                  Filter pods by their status (phase); e.g. 'Running', 'Pending', 'Succeeded', 'Failed', 'Unknown'.
       --image string                   Regular expression to match container images against.
+      --controller string              Filter pods by their direct controller; format: API-GROUP/RESOURCE (e.g. apps/daemonsets).
   -j, --jq string                      jq expression to filter resources; Uses gojq library for evaluation.
       --restarted                      Find pods that have been restarted at least once.
   -l, --selector string                Label selector to filter resources by labels.
@@ -163,6 +166,19 @@ kubectl fd pods -l app=nginx --annotate 'owner=team-a,old-owner-'
 
 ```shell
 kubectl fd --restarted
+```
+
+### Include or exclude pods by controller
+
+`--controller` matches a pod's direct controller owner. For example, a
+Deployment pod is directly controlled by a ReplicaSet, not the Deployment.
+
+```shell
+# Include only DaemonSet-managed pods
+kubectl fd pods --controller apps/daemonsets
+
+# Exclude DaemonSet-managed pods
+kubectl fd pods --not --controller apps/daemonsets
 ```
 
 ### Enhanced output

@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
+	"k8s.io/client-go/rest"
 )
 
 func TestNegatableStringValue(t *testing.T) {
@@ -31,6 +32,20 @@ func TestNegatableStringValue(t *testing.T) {
 	}
 	if exclude != "canary" {
 		t.Fatalf("got excluded value %q, want canary", exclude)
+	}
+}
+
+func TestInitializeDiscoveryClientAndRESTMapper(t *testing.T) {
+	t.Parallel()
+
+	options := NewFindOptions(genericiooptions.IOStreams{})
+	options.rest = &rest.Config{Host: "https://api.example.test"}
+
+	if err := options.initializeDiscoveryClientAndRESTMapper(); err != nil {
+		t.Fatalf("initialize discovery client and REST mapper: %v", err)
+	}
+	if options.discoveryClient == nil || options.resourceMapper == nil {
+		t.Fatal("expected REST mapper to be initialized")
 	}
 }
 
@@ -114,6 +129,16 @@ func TestFindFlagParsing(t *testing.T) {
 			},
 		},
 		{
+			name: "controller filters",
+			args: []string{"--controller", "apps/Daemonsets", "--not", "--controller", "batch/jobs"},
+			check: func(t *testing.T, options *FindOptions) {
+				t.Helper()
+				if options.controller != "apps/Daemonsets" || options.excludedController != "batch/jobs" {
+					t.Fatalf("controller filters were not parsed: %+v", options)
+				}
+			},
+		},
+		{
 			name: "negated namespace",
 			args: []string{"--not", "-n", "kube-system"},
 			check: func(t *testing.T, options *FindOptions) {
@@ -162,7 +187,7 @@ func TestEveryFlagParses(t *testing.T) {
 		"--client-certificate", "/tmp/client.crt", "--client-key", "/tmp/client.key", "--cluster", "cluster-a",
 		"--drain-chunk-size", "500", "--context", "context-a", "--cordon", "--delete", "--drain-delete-emptydir-data",
 		"--disable-compression", "--drain-disable-eviction", "--drain", "--exec", "echo ok", "--force", "--drain-grace-period", "30",
-		"--host", "host-1", "--image", "nginx", "--insecure-skip-tls-verify", "--jq", ".metadata.name != null",
+		"--controller", "apps/daemonsets", "--host", "host-1", "--image", "nginx", "--insecure-skip-tls-verify", "--jq", ".metadata.name != null",
 		"--drain-ignore-daemonsets", "--kubeconfig", "/tmp/config", "--labels", "app,version", "--max-age", "24h", "--min-age", "1h",
 		"--name", "prod", "--namespace", "production", "--natural-sort", "--node", "host-2",
 		"--node-condition", "Ready=True", "--node-labels", "topology.kubernetes.io/zone", "--patch", `{"metadata":{}}`,
@@ -182,7 +207,7 @@ func TestEveryFlagParses(t *testing.T) {
 		"as-uid": true, "as-user-extra": true, "cache-dir": true, "certificate-authority": true,
 		"drain-chunk-size": true, "client-certificate": true, "client-key": true, "cluster": true, "context": true, "cordon": true,
 		"delete": true, "drain-delete-emptydir-data": true, "disable-compression": true, "drain-disable-eviction": true, "drain": true,
-		"exec": true, "force": true, "drain-grace-period": true, "host": true, "image": true, "drain-ignore-daemonsets": true,
+		"controller": true, "exec": true, "force": true, "drain-grace-period": true, "host": true, "image": true, "drain-ignore-daemonsets": true,
 		"insecure-skip-tls-verify": true, "jq": true, "kubeconfig": true, "labels": true, "max-age": true,
 		"min-age": true, "name": true, "namespace": true, "natural-sort": true, "node": true,
 		"node-condition": true, "node-labels": true, "not": true, "patch": true, "drain-pod-selector": true, "proxy-url": true, "request-timeout": true,

@@ -255,6 +255,8 @@ type ActionOptions struct {
 	ExcludeRestarted      bool
 	ImageRegex            *regexp.Regexp // filter pods by container image, only applicable for pod resources
 	ExcludedImageRegex    *regexp.Regexp
+	Controller            *schema.GroupKind // direct controller owner type for pods
+	ExcludedController    *schema.GroupKind
 	ShowNodeLabels        []string // list of node labels to show, only applicable for pod resources
 
 	// Node related options

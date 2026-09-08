@@ -19,6 +19,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -864,5 +865,62 @@ func TestPodsHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, test(tt.prepare, tt.args, tt.shared, tt.want))
+	}
+}
+
+func TestPodControllerMatcher(t *testing.T) {
+	t.Parallel()
+
+	controller := true
+	notController := false
+	daemonSet := schema.GroupKind{Group: "apps", Kind: "DaemonSet"}
+
+	tests := []struct {
+		name    string
+		options ActionOptions
+		pod     v1.Pod
+		want    bool
+	}{
+		{
+			name:    "includes direct DaemonSet controller",
+			options: ActionOptions{Controller: &daemonSet},
+			pod: v1.Pod{ObjectMeta: metav1.ObjectMeta{OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: "apps/v1", Kind: "DaemonSet", Controller: &controller,
+			}}}},
+			want: true,
+		},
+		{
+			name:    "does not treat non-controller owner as controller",
+			options: ActionOptions{Controller: &daemonSet},
+			pod: v1.Pod{ObjectMeta: metav1.ObjectMeta{OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: "apps/v1", Kind: "DaemonSet", Controller: &notController,
+			}}}},
+			want: false,
+		},
+		{
+			name:    "excludes direct DaemonSet controller",
+			options: ActionOptions{ExcludedController: &daemonSet},
+			pod: v1.Pod{ObjectMeta: metav1.ObjectMeta{OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: "apps/v1", Kind: "DaemonSet", Controller: &controller,
+			}}}},
+			want: false,
+		},
+		{
+			name:    "does not exclude a ReplicaSet controlled pod",
+			options: ActionOptions{ExcludedController: &daemonSet},
+			pod: v1.Pod{ObjectMeta: metav1.ObjectMeta{OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: "apps/v1", Kind: "ReplicaSet", Controller: &controller,
+			}}}},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := (&PodHandler{}).getMatcher(tt.options)(&tt.pod); got != tt.want {
+				t.Errorf("getMatcher() = %t, want %t", got, tt.want)
+			}
+		})
 	}
 }

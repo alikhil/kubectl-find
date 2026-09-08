@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/alikhil/kubectl-find/pkg"
@@ -83,6 +84,9 @@ type FindOptions struct {
 	rawConfig api.Config
 	rest      *rest.Config
 
+	discoveryClient *discovery.DiscoveryClient
+	resourceMapper  meta.RESTMapper
+
 	allNamespaces bool
 	searchType    string
 	delete        bool
@@ -102,6 +106,7 @@ type FindOptions struct {
 	force         bool
 	restarted     bool
 	imageRegex    string
+	controller    string
 	jqFilter      string
 	naturalSort   bool
 	not           bool
@@ -120,6 +125,7 @@ type FindOptions struct {
 	excludedPodStatus     string
 	excludedNodeNameRegex string
 	excludedImageRegex    string
+	excludedController    string
 	excludedJQFilter      string
 	excludeRestarted      bool
 
@@ -304,6 +310,8 @@ func newCmdFind(o *FindOptions) *cobra.Command {
 	cmd.Flags().
 		Var(newNegatableStringValue(&o.imageRegex, &o.excludedImageRegex, &o.not), "image", "Regular expression to match container images against.")
 	cmd.Flags().
+		Var(newNegatableStringValue(&o.controller, &o.excludedController, &o.not), "controller", "Filter pods by their direct controller; format: API-GROUP/RESOURCE (e.g. apps/daemonsets).")
+	cmd.Flags().
 		VarP(newNegatableStringValue(&o.jqFilter, &o.excludedJQFilter, &o.not), "jq", "j", "jq expression to filter resources; Uses gojq library for evaluation.")
 	cmd.Flags().
 		StringSliceVarP(&o.showNodeLabels, "node-labels", "N", nil, "Comma-separated list of node labels to show.")
@@ -394,37 +402,42 @@ func cleanResourceName(resource string) string {
 	return resource
 }
 
-func (o *FindOptions) findResource(resource string) (handlers.Resource, error) {
+func (o *FindOptions) initializeDiscoveryClientAndRESTMapper() error {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(o.rest)
-	empty := handlers.Resource{}
 	if err != nil {
-		return empty, fmt.Errorf("unable to create discovery client: %w", err)
+		return fmt.Errorf("unable to create discovery client: %w", err)
 	}
 	discoveryCachedClient := memory.NewMemCacheClient(discoveryClient)
-
 	restMapper := restmapper.NewShortcutExpander(
 		restmapper.NewDeferredDiscoveryRESTMapper(discoveryCachedClient),
 		discoveryClient,
 		nil, // no warning handler
 	)
+	o.discoveryClient = discoveryClient
+	o.resourceMapper = restMapper
 
+	return nil
+}
+
+func (o *FindOptions) findResource(resource string) (handlers.Resource, error) {
+	empty := handlers.Resource{}
 	resource = cleanResourceName(resource)
 
 	gvr := schema.GroupVersionResource{Resource: resource}
 
-	resolved, err := restMapper.ResourceFor(gvr)
+	resolved, err := o.resourceMapper.ResourceFor(gvr)
 	if err != nil {
 		return empty, fmt.Errorf("unable to resolve resource %s: %w", resource, err)
 	}
 
-	gvk, err := restMapper.KindFor(resolved)
+	gvk, err := o.resourceMapper.KindFor(resolved)
 	if err != nil {
 		return empty, fmt.Errorf("unable to get kind for resource %q: %w", resource, err)
 	}
 
 	groupVersion := resolved.GroupVersion().String()
 
-	apiResourceList, err := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
+	apiResourceList, err := o.discoveryClient.ServerResourcesForGroupVersion(groupVersion)
 	if err != nil {
 		return empty, fmt.Errorf("unable to get server resources for group version %q: %w", groupVersion, err)
 	}
@@ -443,10 +456,41 @@ func (o *FindOptions) findResource(resource string) (handlers.Resource, error) {
 	return empty, fmt.Errorf("resource %q not found in group version %q", resource, groupVersion)
 }
 
+// findController resolves an API group and resource name to the GroupKind
+// stored by a pod's controller owner reference.
+func (o *FindOptions) findController(controller string) (schema.GroupKind, error) {
+	parts := strings.Split(controller, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return schema.GroupKind{}, fmt.Errorf(
+			"invalid controller %q, expected API-GROUP/RESOURCE (e.g. apps/daemonsets)",
+			controller,
+		)
+	}
+
+	resource := schema.GroupVersionResource{
+		Group:    parts[0],
+		Resource: strings.ToLower(parts[1]),
+	}
+	resolved, err := o.resourceMapper.ResourceFor(resource)
+	if err != nil {
+		return schema.GroupKind{}, fmt.Errorf("unable to resolve controller %q: %w", controller, err)
+	}
+	kind, err := o.resourceMapper.KindFor(resolved)
+	if err != nil {
+		return schema.GroupKind{}, fmt.Errorf("unable to resolve controller kind %q: %w", controller, err)
+	}
+
+	return kind.GroupKind(), nil
+}
+
 // Validate ensures that all required arguments and flag values are provided.
 func (o *FindOptions) Validate() error {
 	if len(o.rawConfig.CurrentContext) == 0 {
 		return errNoContext
+	}
+
+	if err := o.initializeDiscoveryClientAndRESTMapper(); err != nil {
+		return err
 	}
 
 	var err error
@@ -660,6 +704,30 @@ func (o *FindOptions) Validate() error {
 			o.resourceType.GroupVersionResource.String(),
 		)
 	}
+
+	var controller, excludedController *schema.GroupKind
+	if o.controller != "" {
+		if o.resourceType.GroupVersionResource != handlers.PodType {
+			return fmt.Errorf("controller filtering is only supported for pods, but got %q",
+				o.resourceType.GroupVersionResource.String())
+		}
+		resolved, resolveErr := o.findController(o.controller)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		controller = &resolved
+	}
+	if o.excludedController != "" {
+		if o.resourceType.GroupVersionResource != handlers.PodType {
+			return fmt.Errorf("controller filtering is only supported for pods, but got %q",
+				o.resourceType.GroupVersionResource.String())
+		}
+		resolved, resolveErr := o.findController(o.excludedController)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		excludedController = &resolved
+	}
 	var jqQuery *gojq.Query
 	if o.jqFilter != "" {
 		jqQuery, err = pkg.PrepareQuery(o.jqFilter)
@@ -753,6 +821,8 @@ func (o *FindOptions) Validate() error {
 		DrainDisableEviction:       o.drainDisableEviction,
 		DrainSkipWaitDeleteTimeout: o.drainSkipWaitDeleteTimeout,
 		DrainChunkSize:             o.drainChunkSize,
+		Controller:                 controller,
+		ExcludedController:         excludedController,
 	}
 
 	return nil
