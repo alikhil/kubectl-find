@@ -1,3 +1,11 @@
+## v0.16.0 (2026-09-09)
+
+### Feat
+
+- add pod filtering by direct controller
+- add node cordon and drain actions
+- add negated find filters with --not
+
 ## v0.15.1 (2026-07-11)
 
 ### Fix
