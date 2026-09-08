@@ -160,14 +160,15 @@ func TestEveryFlagParses(t *testing.T) {
 		"--as", "alice", "--as-group", "developers", "--as-uid", "1000", "--as-user-extra", "scope=read",
 		"--cache-dir", "/tmp/kubectl-find-cache", "--certificate-authority", "/tmp/ca.crt",
 		"--client-certificate", "/tmp/client.crt", "--client-key", "/tmp/client.key", "--cluster", "cluster-a",
-		"--context", "context-a", "--delete", "--disable-compression", "--exec", "echo ok", "--force",
+		"--drain-chunk-size", "500", "--context", "context-a", "--cordon", "--delete", "--drain-delete-emptydir-data",
+		"--disable-compression", "--drain-disable-eviction", "--drain", "--exec", "echo ok", "--force", "--drain-grace-period", "30",
 		"--host", "host-1", "--image", "nginx", "--insecure-skip-tls-verify", "--jq", ".metadata.name != null",
-		"--kubeconfig", "/tmp/config", "--labels", "app,version", "--max-age", "24h", "--min-age", "1h",
+		"--drain-ignore-daemonsets", "--kubeconfig", "/tmp/config", "--labels", "app,version", "--max-age", "24h", "--min-age", "1h",
 		"--name", "prod", "--namespace", "production", "--natural-sort", "--node", "host-2",
 		"--node-condition", "Ready=True", "--node-labels", "topology.kubernetes.io/zone", "--patch", `{"metadata":{}}`,
-		"--request-timeout", "5s", "--restarted", "--selector", "app=nginx", "--server", "https://api.example.test",
+		"--drain-pod-selector", "app=nginx", "--proxy-url", "http://proxy.example.test", "--request-timeout", "5s", "--restarted", "--selector", "app=nginx", "--server", "https://api.example.test",
 		"--skip-confirm", "--status", "Running", "--tls-server-name", "api.example.test", "--token", "token",
-		"--user", "user-a", "--not",
+		"--drain-skip-wait-for-delete-timeout", "60", "--drain-timeout", "2m", "--uncordon", "--user", "user-a", "--not",
 	}
 	if err := command.ParseFlags(args); err != nil {
 		t.Fatalf("parse every flag: %v", err)
@@ -179,13 +180,14 @@ func TestEveryFlagParses(t *testing.T) {
 	expected := map[string]bool{
 		"all-namespaces": true, "annotate": true, "annotations": true, "as": true, "as-group": true,
 		"as-uid": true, "as-user-extra": true, "cache-dir": true, "certificate-authority": true,
-		"client-certificate": true, "client-key": true, "cluster": true, "context": true, "delete": true,
-		"disable-compression": true, "exec": true, "force": true, "host": true, "image": true,
+		"drain-chunk-size": true, "client-certificate": true, "client-key": true, "cluster": true, "context": true, "cordon": true,
+		"delete": true, "drain-delete-emptydir-data": true, "disable-compression": true, "drain-disable-eviction": true, "drain": true,
+		"exec": true, "force": true, "drain-grace-period": true, "host": true, "image": true, "drain-ignore-daemonsets": true,
 		"insecure-skip-tls-verify": true, "jq": true, "kubeconfig": true, "labels": true, "max-age": true,
 		"min-age": true, "name": true, "namespace": true, "natural-sort": true, "node": true,
-		"node-condition": true, "node-labels": true, "not": true, "patch": true, "request-timeout": true,
+		"node-condition": true, "node-labels": true, "not": true, "patch": true, "drain-pod-selector": true, "proxy-url": true, "request-timeout": true,
 		"restarted": true, "selector": true, "server": true, "skip-confirm": true, "status": true,
-		"tls-server-name": true, "token": true, "user": true,
+		"drain-skip-wait-for-delete-timeout": true, "drain-timeout": true, "tls-server-name": true, "token": true, "uncordon": true, "user": true,
 	}
 	command.Flags().VisitAll(func(flag *pflag.Flag) {
 		if !expected[flag.Name] {

@@ -70,6 +70,8 @@ var (
 	)
 )
 
+const defaultDrainChunkSize int64 = 500
+
 // FindOptions provides information required to handle the `find` command.
 type FindOptions struct {
 	configFlags *genericclioptions.ConfigFlags
@@ -84,6 +86,9 @@ type FindOptions struct {
 	allNamespaces bool
 	searchType    string
 	delete        bool
+	cordon        bool
+	uncordon      bool
+	drain         bool
 	exec          string
 	patch         string
 	annotate      string
@@ -100,6 +105,15 @@ type FindOptions struct {
 	jqFilter      string
 	naturalSort   bool
 	not           bool
+
+	drainIgnoreDaemonSets      bool
+	drainDeleteEmptyDirData    bool
+	drainGracePeriodSeconds    int
+	drainTimeout               time.Duration
+	drainPodSelector           string
+	drainDisableEviction       bool
+	drainSkipWaitDeleteTimeout int
+	drainChunkSize             int64
 
 	excludedRegex         string
 	excludedLabelSelector string
@@ -249,6 +263,9 @@ func newCmdFind(o *FindOptions) *cobra.Command {
 		VarP(newNegatableStringValue(&o.labelSelector, &o.excludedLabelSelector, &o.not), "selector", "l", "Label selector to filter resources by labels.")
 	cmd.Flags().BoolVar(&o.not, "not", false, "Negate every following filter flag.")
 	cmd.Flags().BoolVar(&o.delete, "delete", false, "Delete all matched resources.")
+	cmd.Flags().BoolVar(&o.cordon, "cordon", false, "Cordon all matched nodes.")
+	cmd.Flags().BoolVar(&o.uncordon, "uncordon", false, "Uncordon all matched nodes.")
+	cmd.Flags().BoolVar(&o.drain, "drain", false, "Cordon and drain all matched nodes.")
 	cmd.Flags().StringVarP(&o.exec, "exec", "e", "", "Execute a command on all found pods.")
 	cmd.Flags().StringVarP(&o.patch, "patch", "p", "", "Patch all found resources with the specified JSON patch.")
 	cmd.Flags().StringVar(&o.annotate, "annotate", "",
@@ -259,6 +276,22 @@ func newCmdFind(o *FindOptions) *cobra.Command {
 		StringVar(&o.maxAge, "max-age", "", "Filter resources by maximum age; e.g. '2d' for 2 days, '3h' for 3 hours, etc.")
 	cmd.Flags().
 		BoolVarP(&o.skipConfirm, "skip-confirm", "y", false, "Skip confirmation prompt before performing actions on resources.")
+	cmd.Flags().
+		BoolVar(&o.drainIgnoreDaemonSets, "drain-ignore-daemonsets", false, "Ignore DaemonSet-managed pods while draining nodes.")
+	cmd.Flags().
+		BoolVar(&o.drainDeleteEmptyDirData, "drain-delete-emptydir-data", false, "Continue draining when pods use emptyDir data.")
+	cmd.Flags().
+		IntVar(&o.drainGracePeriodSeconds, "drain-grace-period", -1, "Grace period in seconds for pods drained from nodes; negative uses the pod default.")
+	cmd.Flags().
+		DurationVar(&o.drainTimeout, "drain-timeout", 0, "Maximum time to wait for each node drain; zero means infinite.")
+	cmd.Flags().
+		StringVar(&o.drainPodSelector, "drain-pod-selector", "", "Label selector to filter pods drained from nodes.")
+	cmd.Flags().
+		BoolVar(&o.drainDisableEviction, "drain-disable-eviction", false, "Use deletion instead of eviction when draining nodes.")
+	cmd.Flags().
+		IntVar(&o.drainSkipWaitDeleteTimeout, "drain-skip-wait-for-delete-timeout", 0, "Skip waiting for pods with a deletion timestamp older than this many seconds.")
+	cmd.Flags().
+		Int64Var(&o.drainChunkSize, "drain-chunk-size", defaultDrainChunkSize, "Number of pods to fetch per request while draining nodes; 0 disables chunking.")
 	cmd.Flags().
 		BoolVar(&o.force, "force", false, "If true, immediately remove resources from API and bypass graceful deletion. Can only be used with --delete flag.")
 	cmd.Flags().
@@ -478,6 +511,25 @@ func (o *FindOptions) Validate() error {
 		}
 		action = handlers.ActionExec
 	}
+	if o.cordon || o.uncordon || o.drain {
+		if o.delete || o.patch != "" || o.exec != "" || o.annotate != "" {
+			return errors.New("cannot combine node actions with other actions")
+		}
+		if (o.cordon && o.uncordon) || (o.cordon && o.drain) || (o.uncordon && o.drain) {
+			return errors.New("only one node action may be specified")
+		}
+		if o.resourceType.GroupVersionResource != handlers.NodeType {
+			return fmt.Errorf("node actions are only supported for nodes, but got %q", o.resourceType.PluralName)
+		}
+		switch {
+		case o.cordon:
+			action = handlers.ActionCordon
+		case o.uncordon:
+			action = handlers.ActionUncordon
+		case o.drain:
+			action = handlers.ActionDrain
+		}
+	}
 
 	var annotateCfg handlers.AnnotateConfig
 	if o.annotate != "" {
@@ -492,8 +544,8 @@ func (o *FindOptions) Validate() error {
 		action = handlers.ActionAnnotate
 	}
 
-	if o.force && action != handlers.ActionDelete {
-		return errors.New("--force flag can only be used with --delete flag")
+	if o.force && action != handlers.ActionDelete && action != handlers.ActionDrain {
+		return errors.New("--force flag can only be used with --delete or --drain")
 	}
 
 	if action == handlers.ActionExec && !o.handler.IsExecutable() {
@@ -662,37 +714,45 @@ func (o *FindOptions) Validate() error {
 	}
 
 	o.options = handlers.ActionOptions{
-		Namespace:             o.userSpecifiedNamespace,
-		ExcludedNamespace:     o.excludedNamespace,
-		Action:                action,
-		NameRegex:             reg,
-		ExcludedNameRegex:     excludedRegex,
-		MaxAge:                maxAge,
-		MinAge:                minAge,
-		LabelSelector:         o.labelSelector, // todo: add validation for label selector
-		ExcludedLabelSelector: excludedLabelSelector,
-		Streams:               &o.IOStreams,
-		JQQuery:               jqQuery,
-		ExcludedJQQuery:       excludedJQQuery,
-		NodeNameRegex:         nodeNameRegex,
-		ExcludedNodeNameRegex: excludedNodeNameRegex,
-		SkipConfirm:           o.skipConfirm,
-		Force:                 o.force,
-		PodStatus:             handlers.ToPodPhase(o.podStatus),
-		ExcludedPodStatus:     excludedPodStatus,
-		Exec:                  o.exec,
-		Patch:                 o.patch,
-		Annotate:              annotateCfg,
-		ResourceType:          o.resourceType,
-		Restarted:             o.restarted,
-		ExcludeRestarted:      o.excludeRestarted,
-		ImageRegex:            imagesRegex,
-		ExcludedImageRegex:    excludedImageRegex,
-		ShowNodeLabels:        o.showNodeLabels,
-		ShowLabels:            o.showLabels,
-		ShowAnnotations:       o.showAnnotations,
-		NaturalSort:           o.naturalSort,
-		NodeConditions:        nodeConditions,
+		Namespace:                  o.userSpecifiedNamespace,
+		ExcludedNamespace:          o.excludedNamespace,
+		Action:                     action,
+		NameRegex:                  reg,
+		ExcludedNameRegex:          excludedRegex,
+		MaxAge:                     maxAge,
+		MinAge:                     minAge,
+		LabelSelector:              o.labelSelector, // todo: add validation for label selector
+		ExcludedLabelSelector:      excludedLabelSelector,
+		Streams:                    &o.IOStreams,
+		JQQuery:                    jqQuery,
+		ExcludedJQQuery:            excludedJQQuery,
+		NodeNameRegex:              nodeNameRegex,
+		ExcludedNodeNameRegex:      excludedNodeNameRegex,
+		SkipConfirm:                o.skipConfirm,
+		Force:                      o.force,
+		PodStatus:                  handlers.ToPodPhase(o.podStatus),
+		ExcludedPodStatus:          excludedPodStatus,
+		Exec:                       o.exec,
+		Patch:                      o.patch,
+		Annotate:                   annotateCfg,
+		ResourceType:               o.resourceType,
+		Restarted:                  o.restarted,
+		ExcludeRestarted:           o.excludeRestarted,
+		ImageRegex:                 imagesRegex,
+		ExcludedImageRegex:         excludedImageRegex,
+		ShowNodeLabels:             o.showNodeLabels,
+		ShowLabels:                 o.showLabels,
+		ShowAnnotations:            o.showAnnotations,
+		NaturalSort:                o.naturalSort,
+		NodeConditions:             nodeConditions,
+		DrainIgnoreDaemonSets:      o.drainIgnoreDaemonSets,
+		DrainDeleteEmptyDirData:    o.drainDeleteEmptyDirData,
+		DrainGracePeriodSeconds:    o.drainGracePeriodSeconds,
+		DrainTimeout:               o.drainTimeout,
+		DrainPodSelector:           o.drainPodSelector,
+		DrainDisableEviction:       o.drainDisableEviction,
+		DrainSkipWaitDeleteTimeout: o.drainSkipWaitDeleteTimeout,
+		DrainChunkSize:             o.drainChunkSize,
 	}
 
 	return nil

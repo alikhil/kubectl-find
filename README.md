@@ -28,7 +28,7 @@ kubectl fd pods --not -n kube-system
 
 `--not -n <namespace>` searches all namespaces and excludes that namespace.
 
-and then **print, patch, annotate or delete** any.
+and then **print, patch, annotate, delete, or manage matching nodes**.
 
 ## Usage
 
@@ -56,6 +56,9 @@ Flags:
   -e, --exec string                    Execute a command on all found pods.
       --annotate string                Annotate all found resources; format: k=v[,k2=v2] to add/overwrite or k- to remove annotations.
       --delete                         Delete all matched resources.
+      --cordon                         Cordon all matched nodes.
+      --uncordon                       Uncordon all matched nodes.
+      --drain                          Cordon and drain all matched nodes.
   -y, --skip-confirm                   Skip confirmation prompt before performing actions on resources.
       --force                          If true, immediately remove resources from API and bypass graceful deletion. Can only be used with --delete flag.
 ```
@@ -122,6 +125,19 @@ kubectl fd pods -l app=nginx --exec 'nginx -s reload'
 ```shell
 kubectl fd pods --status failed -A --delete
 ```
+
+### Manage matching nodes
+
+```shell
+kubectl fd nodes --name 'worker-.*' --cordon
+kubectl fd nodes --not --name 'control-plane.*' --drain --drain-ignore-daemonsets --drain-delete-emptydir-data --force
+kubectl fd nodes --name 'worker-.*' --uncordon
+```
+
+`--drain` supports `--force`, `--drain-ignore-daemonsets`,
+`--drain-delete-emptydir-data`, `--drain-grace-period`, `--drain-timeout`,
+`--drain-pod-selector`, `--drain-disable-eviction`,
+`--drain-skip-wait-for-delete-timeout`, and `--drain-chunk-size`.
 
 ### Annotate resources
 

@@ -88,6 +88,9 @@ const (
 	ActionPatch
 	ActionExec
 	ActionAnnotate
+	ActionCordon
+	ActionUncordon
+	ActionDrain
 )
 
 func (a Action) String() string {
@@ -102,6 +105,12 @@ func (a Action) String() string {
 		return "exec"
 	case ActionAnnotate:
 		return "annotate"
+	case ActionCordon:
+		return "cordon"
+	case ActionUncordon:
+		return "uncordon"
+	case ActionDrain:
+		return "drain"
 	default:
 		return "Unknown"
 	}
@@ -186,6 +195,15 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 			}),
 			executorGetter: opts.executorGetter,
 		}, nil
+	case NodeType:
+		return &NodeHandler{
+			clientSet: opts.clientSet,
+			printer: printers.NewTablePrinter(printers.TablePrinterOptions{
+				AdditionalColumns: GetColumnsFor(opts, resource),
+				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
+				AnnotationColumns: GetAnnotationColumns(opts),
+			}),
+		}, nil
 	default:
 
 		return NewUniversalHandler(UniversalHandlerOptions{
@@ -241,6 +259,16 @@ type ActionOptions struct {
 
 	// Node related options
 	NodeConditions []NodeCondition // filter nodes by conditions, only applicable for node resources
+
+	// Node drain options. These mirror the corresponding kubectl drain flags.
+	DrainIgnoreDaemonSets      bool
+	DrainDeleteEmptyDirData    bool
+	DrainGracePeriodSeconds    int
+	DrainTimeout               time.Duration
+	DrainPodSelector           string
+	DrainDisableEviction       bool
+	DrainSkipWaitDeleteTimeout int
+	DrainChunkSize             int64
 
 	Streams *genericclioptions.IOStreams
 }
