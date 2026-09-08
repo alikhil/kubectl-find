@@ -290,6 +290,8 @@ func (p *PodHandler) HandleAction(ctx context.Context, options ActionOptions) er
 				return fmt.Errorf("failed to execute command on pod %s: %w", pod.Name, err)
 			}
 		}
+	case ActionCordon, ActionUncordon, ActionDrain:
+		return fmt.Errorf("action %s is not supported for pods", options.Action)
 	default:
 		panic("unimplemented action")
 	}

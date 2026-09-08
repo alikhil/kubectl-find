@@ -20,9 +20,12 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 )
 
-const defaultReplicaCount = int32(1)
-
-const nodeRoleLabelPrefix = "node-role.kubernetes.io/"
+const (
+	defaultReplicaCount = int32(1)
+	nodeRoleLabelPrefix = "node-role.kubernetes.io/"
+	readyColumnHeader   = "READY"
+	readyNodeStatus     = "Ready"
+)
 
 func labelToColumnHeader(label string) string {
 	parts := strings.Split(label, "/")
@@ -36,7 +39,7 @@ func labelToColumnHeader(label string) string {
 func getColumnsForPods(opts HandlerOptions) []printers.Column {
 	columns := []printers.Column{
 		{
-			Header: "READY",
+			Header: readyColumnHeader,
 			Value: func(obj unstructured.Unstructured) string {
 				pod, err := toPod(obj)
 				if err != nil {
@@ -221,7 +224,7 @@ func toDaemonSet(obj unstructured.Unstructured) (*appsv1.DaemonSet, error) {
 func getColumnsForDeployments() []printers.Column {
 	return []printers.Column{
 		{
-			Header: "READY",
+			Header: readyColumnHeader,
 			Value: func(obj unstructured.Unstructured) string {
 				deployment, err := toDeployment(obj)
 				if err != nil {
@@ -260,7 +263,7 @@ func getColumnsForDeployments() []printers.Column {
 func getColumnsForStatefulSets() []printers.Column {
 	return []printers.Column{
 		{
-			Header: "READY",
+			Header: readyColumnHeader,
 			Value: func(obj unstructured.Unstructured) string {
 				statefulSet, err := toStatefulSet(obj)
 				if err != nil {
@@ -299,7 +302,7 @@ func getColumnsForReplicaSets() []printers.Column {
 			},
 		},
 		{
-			Header: "READY",
+			Header: readyColumnHeader,
 			Value: func(obj unstructured.Unstructured) string {
 				replicaSet, err := toReplicaSet(obj)
 				if err != nil {
@@ -327,7 +330,7 @@ func getNodeStatus(node *v1.Node) string {
 
 	status := "NotReady"
 	if conditionMap[v1.NodeReady] == v1.ConditionTrue {
-		status = "Ready"
+		status = readyNodeStatus
 	}
 
 	if node.Spec.Unschedulable {
@@ -417,7 +420,7 @@ func getColumnsForDaemonSets() []printers.Column {
 			},
 		},
 		{
-			Header: "READY",
+			Header: readyColumnHeader,
 			Value: func(obj unstructured.Unstructured) string {
 				daemonSet, err := toDaemonSet(obj)
 				if err != nil {

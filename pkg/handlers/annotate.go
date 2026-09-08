@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+const (
+	metadataKey    = "metadata"
+	annotationsKey = "annotations"
+)
+
 // AnnotateConfig holds parsed annotation changes to apply to resources.
 type AnnotateConfig struct {
 	// Add maps annotation keys to their values (always overwrites existing).
@@ -78,8 +83,8 @@ func (a AnnotateConfig) ToMergePatch() ([]byte, error) {
 	}
 
 	patch := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"annotations": annotations,
+		metadataKey: map[string]interface{}{
+			annotationsKey: annotations,
 		},
 	}
 

@@ -16,6 +16,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const (
+	appsGroup     = "apps"
+	nodesResource = "nodes"
+)
+
 type Resource struct {
 	schema.GroupVersionResource
 	schema.GroupVersionKind
@@ -41,34 +46,34 @@ var ServiceType = schema.GroupVersionResource{
 //nolint:gochecknoglobals
 var DeploymentType = schema.GroupVersionResource{
 	Resource: "deployments",
-	Group:    "apps",
+	Group:    appsGroup,
 	Version:  "v1",
 }
 
 //nolint:gochecknoglobals
 var StatefulSetType = schema.GroupVersionResource{
 	Resource: "statefulsets",
-	Group:    "apps",
+	Group:    appsGroup,
 	Version:  "v1",
 }
 
 //nolint:gochecknoglobals
 var ReplicaSetType = schema.GroupVersionResource{
 	Resource: "replicasets",
-	Group:    "apps",
+	Group:    appsGroup,
 	Version:  "v1",
 }
 
 //nolint:gochecknoglobals
 var DaemonSetType = schema.GroupVersionResource{
 	Resource: "daemonsets",
-	Group:    "apps",
+	Group:    appsGroup,
 	Version:  "v1",
 }
 
 //nolint:gochecknoglobals
 var NodeType = schema.GroupVersionResource{
-	Resource: "nodes",
+	Resource: nodesResource,
 	Group:    "",
 	Version:  "v1",
 }
