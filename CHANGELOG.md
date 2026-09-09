@@ -1,3 +1,13 @@
+## v0.17.0 (2026-09-10)
+
+### Feat
+
+- add virtual node condition SchedulingDisabled handling
+
+### Fix
+
+- return back node version column
+
 ## v0.16.0 (2026-09-09)
 
 ### Feat
