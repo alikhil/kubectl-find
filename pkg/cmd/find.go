@@ -322,7 +322,7 @@ func newCmdFind(o *FindOptions) *cobra.Command {
 	cmd.Flags().
 		BoolVar(&o.naturalSort, "natural-sort", false, "Sort resource names in natural order.")
 	cmd.Flags().StringSliceVar(&o.nodeConditions, "node-condition", nil,
-		"Filter nodes by conditions; format: ConditionType=Status (e.g. 'Ready=True', 'DiskPressure=False'). Supports custom conditions from NPD or other agents.")
+		"Filter nodes by conditions; format: ConditionType=Status (e.g. 'Ready=True', 'SchedulingDisabled=False'). Supports custom conditions from NPD or other agents.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 	namespaceFlag := cmd.Flags().Lookup("namespace")

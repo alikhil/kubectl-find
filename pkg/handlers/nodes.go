@@ -159,12 +159,8 @@ func NodeConditionMatches(resource unstructured.Unstructured, options *ActionOpt
 		return true
 	}
 
-	conditionsRaw, found, _ := unstructured.NestedSlice(resource.Object, "status", "conditions")
-	if !found {
-		return false
-	}
-
-	conditionMap := make(map[string]string, len(conditionsRaw))
+	conditionsRaw, _, _ := unstructured.NestedSlice(resource.Object, "status", "conditions")
+	conditionMap := make(map[string]string, len(conditionsRaw)+1)
 	for _, c := range conditionsRaw {
 		cMap, ok := c.(map[string]interface{})
 		if !ok {
@@ -175,6 +171,12 @@ func NodeConditionMatches(resource unstructured.Unstructured, options *ActionOpt
 		if cType != "" {
 			conditionMap[strings.ToLower(cType)] = strings.ToLower(cStatus)
 		}
+	}
+	unschedulable, _, _ := unstructured.NestedBool(resource.Object, "spec", "unschedulable")
+	if unschedulable {
+		conditionMap["schedulingdisabled"] = "true"
+	} else {
+		conditionMap["schedulingdisabled"] = "false"
 	}
 
 	for _, nc := range options.NodeConditions {

@@ -59,3 +59,49 @@ func TestNodeHandlerListIncludesKubeletVersion(t *testing.T) {
 	require.Contains(t, output.String(), "VERSION")
 	require.Contains(t, output.String(), "v1.32.3")
 }
+
+func TestNodeHandlerFiltersUncordonedNodesBySchedulingDisabledCondition(t *testing.T) {
+	t.Parallel()
+
+	readyCondition := v1.NodeCondition{Type: v1.NodeReady, Status: v1.ConditionTrue}
+	clientSet := fake.NewSimpleClientset(
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "worker-1"},
+			Status:     v1.NodeStatus{Conditions: []v1.NodeCondition{readyCondition}},
+		},
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "worker-2"},
+			Status:     v1.NodeStatus{Conditions: []v1.NodeCondition{readyCondition}},
+		},
+	)
+	handler, err := GetResourceHandler(
+		Resource{GroupVersionResource: NodeType},
+		NewHandlerOptions().WithClientSet(clientSet),
+	)
+	require.NoError(t, err)
+
+	streams := &genericclioptions.IOStreams{Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}}
+	err = handler.HandleAction(context.Background(), ActionOptions{
+		Action:      ActionCordon,
+		NameRegex:   regexp.MustCompile("^worker-2$"),
+		SkipConfirm: true,
+		Streams:     streams,
+	})
+	require.NoError(t, err)
+
+	cordonedNode, err := clientSet.CoreV1().Nodes().Get(context.Background(), "worker-2", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.True(t, cordonedNode.Spec.Unschedulable)
+
+	output := &bytes.Buffer{}
+	err = handler.HandleAction(context.Background(), ActionOptions{
+		Action: ActionList,
+		NodeConditions: []NodeCondition{
+			{Type: "SchedulingDisabled", Status: "False"},
+		},
+		Streams: &genericclioptions.IOStreams{Out: output},
+	})
+	require.NoError(t, err)
+	require.Contains(t, output.String(), "worker-1")
+	require.NotContains(t, output.String(), "worker-2")
+}
