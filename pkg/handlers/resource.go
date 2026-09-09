@@ -205,6 +205,7 @@ func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler
 			clientSet: opts.clientSet,
 			printer: printers.NewTablePrinter(printers.TablePrinterOptions{
 				AdditionalColumns: GetColumnsFor(opts, resource),
+				SuffixColumns:     GetSuffixColumnsFor(resource),
 				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
 				AnnotationColumns: GetAnnotationColumns(opts),
 			}),
