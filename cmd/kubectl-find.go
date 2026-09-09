@@ -37,7 +37,7 @@ var (
 )
 
 func main() {
-	flags := pflag.NewFlagSet("kubectl-find", pflag.ExitOnError)
+	flags := pflag.NewFlagSet("kubectl-fd", pflag.ExitOnError)
 	//nolint:reassign // flags are shared
 	pflag.CommandLine = flags
 
@@ -45,7 +45,7 @@ func main() {
 
 	root.AddCommand(&cobra.Command{
 		Use:   "version",
-		Short: "Print the version number of kubectl-find",
+		Short: "Print the version number of kubectl fd",
 		Run: func(_ *cobra.Command, _ []string) {
 			//nolint:forbidigo // this is a CLI tool, so printing version info is acceptable
 			fmt.Printf("version: %s\ncommit: %s\ndate: %s\n", version, commit, date)

@@ -1,4 +1,4 @@
-# kubectl find
+# kubectl fd
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/alikhil/kubectl-find)
 ![GitHub License](https://img.shields.io/github/license/alikhil/kubectl-find)
@@ -54,7 +54,7 @@ Flags:
   -T, --annotations strings            Comma-separated list of annotations to show.
   -N, --node-labels strings            Comma-separated list of node labels to show.
       --natural-sort                   Sort resource names in natural order.
-  -h, --help                           help for kubectl find
+  -h, --help                           help for kubectl fd
   -p, --patch string                   Patch all found resources with the specified JSON patch.
   -e, --exec string                    Execute a command on all found pods.
       --annotate string                Annotate all found resources; format: k=v[,k2=v2] to add/overwrite or k- to remove annotations.

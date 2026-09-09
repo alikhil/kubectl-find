@@ -53,16 +53,16 @@ var (
 	//nolint:gochecknoglobals
 	findExample = `
 	# find pods with names matching prefix
-	%[1]s find --name mypod-*
+	%[1]s fd --name mypod-*
 
 	# find secrets created more than 2 days ago in specified namespace
-	%[1]s find secrets --min-age 2d -n superapp
+	%[1]s fd secrets --min-age 2d -n superapp
 
 	# find all externalecrets and patch them to force sync
-	%[1]s find externalsecret -A --patch '{"metadata": {"annotations": {"force-sync": "'$(date)'"}}}'
+	%[1]s fd externalsecret -A --patch '{"metadata": {"annotations": {"force-sync": "'$(date)'"}}}'
 
 	# find all failed pods and delete them
-	%[1]s find pods --status failed -delete -A
+	%[1]s fd pods --status failed -delete -A
 `
 
 	errNoContext = fmt.Errorf(
@@ -236,13 +236,13 @@ func NewCmdFind(streams genericiooptions.IOStreams) *cobra.Command {
 // separate lets command-level tests verify Cobra's argument parsing directly.
 func newCmdFind(o *FindOptions) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "find [resource type] [flags]",
+		Use:          "fd [resource type] [flags]",
 		Short:        "Find kubernetes resources and perform actions on them",
 		Example:      fmt.Sprintf(findExample, "kubectl"),
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
-			cobra.CommandDisplayNameAnnotation: "kubectl find",
+			cobra.CommandDisplayNameAnnotation: "kubectl fd",
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(c, args); err != nil {

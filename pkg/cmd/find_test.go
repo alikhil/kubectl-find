@@ -4,7 +4,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/require"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest"
 )
@@ -281,4 +283,14 @@ func TestEveryFlagParses(t *testing.T) {
 	for name := range expected {
 		t.Errorf("expected flag %q was not registered", name)
 	}
+}
+
+func TestCommandDisplayNameUsesPluginName(t *testing.T) {
+	t.Parallel()
+
+	command := NewCmdFind(genericiooptions.IOStreams{})
+	require.Equal(t, "kubectl fd", command.Annotations[cobra.CommandDisplayNameAnnotation])
+	require.Equal(t, "fd [resource type] [flags]", command.Use)
+	require.NotContains(t, command.Example, "kubectl find")
+	require.Contains(t, command.Example, "kubectl fd")
 }
