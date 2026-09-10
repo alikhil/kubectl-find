@@ -54,6 +54,7 @@ Flags:
   -T, --annotations strings            Comma-separated list of annotations to show.
   -N, --node-labels strings            Comma-separated list of node labels to show.
       --natural-sort                   Sort resource names in natural order.
+	-o, --output string                  Output format: json, yaml, kyaml, name, go-template=EXPR (or gotemplate=EXPR), or jsonpath=EXPR.
   -h, --help                           help for kubectl fd
   -p, --patch string                   Patch all found resources with the specified JSON patch.
   -e, --exec string                    Execute a command on all found pods.
@@ -79,6 +80,20 @@ krew install fd
 Download [latest release](https://github.com/alikhil/kubectl-find/releases) for your platform/os and save it under `$PATH` as `kubectl-fd`
 
 ## Examples
+
+### Customize output
+
+Without `-o`, `kubectl fd` prints its table output. Use `-o` for machine-readable
+or targeted output:
+
+```shell
+kubectl fd pods -o json
+kubectl fd nodes -o yaml
+kubectl fd nodes -o kyaml
+kubectl fd pods -o name
+kubectl fd pods -o 'go-template={{range .items}}{{.metadata.name}}{{"\\n"}}{{end}}'
+kubectl fd pods -o 'jsonpath={.items[*].metadata.name}'
+```
 
 ### Filter by jq
 

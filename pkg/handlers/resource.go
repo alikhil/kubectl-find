@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/alikhil/kubectl-find/pkg/printers"
 	"github.com/itchyny/gojq"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -136,6 +135,7 @@ type HandlerOptions struct {
 	labels         []string
 	nodeLabels     []string
 	annotations    []string
+	output         string
 }
 
 func NewHandlerOptions() HandlerOptions {
@@ -187,40 +187,33 @@ func (o HandlerOptions) WithAnnotations(withAnnotations []string) HandlerOptions
 	return o
 }
 
+func (o HandlerOptions) WithOutput(output string) HandlerOptions {
+	o.output = output
+	return o
+}
+
 func GetResourceHandler(resource Resource, opts HandlerOptions) (ResourceHandler, error) {
+	printer, err := newBatchPrinter(opts, resource)
+	if err != nil {
+		return nil, err
+	}
+
 	switch resource.GroupVersionResource {
 	case PodType:
 		return &PodHandler{
-			clientSet: opts.clientSet,
-			printer: printers.NewTablePrinter(printers.TablePrinterOptions{
-				ShowNamespace:     opts.allNamespaces,
-				AdditionalColumns: GetColumnsFor(opts, resource),
-				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
-				AnnotationColumns: GetAnnotationColumns(opts),
-			}),
+			clientSet:      opts.clientSet,
+			printer:        printer,
 			executorGetter: opts.executorGetter,
 		}, nil
 	case NodeType:
 		return &NodeHandler{
 			clientSet: opts.clientSet,
-			printer: printers.NewTablePrinter(printers.TablePrinterOptions{
-				AdditionalColumns: GetColumnsFor(opts, resource),
-				SuffixColumns:     GetSuffixColumnsFor(resource),
-				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
-				AnnotationColumns: GetAnnotationColumns(opts),
-			}),
+			printer:   printer,
 		}, nil
 	default:
-
 		return NewUniversalHandler(UniversalHandlerOptions{
-			Client: opts.dynamic,
-			Printer: printers.NewTablePrinter(printers.TablePrinterOptions{
-				ShowNamespace:     resource.IsNamespaced && opts.allNamespaces,
-				AdditionalColumns: GetColumnsFor(opts, resource),
-				SuffixColumns:     GetSuffixColumnsFor(resource),
-				LabelColumns:      GetLabelColumns(opts, resource.GroupVersionResource),
-				AnnotationColumns: GetAnnotationColumns(opts),
-			}),
+			Client:          opts.dynamic,
+			Printer:         printer,
 			Resource:        resource,
 			ResourceMatcher: getResourceMatcher(resource),
 		}), nil

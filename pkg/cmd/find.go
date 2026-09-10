@@ -35,6 +35,7 @@ import (
 
 	"github.com/alikhil/kubectl-find/pkg"
 	"github.com/alikhil/kubectl-find/pkg/handlers"
+	"github.com/alikhil/kubectl-find/pkg/printers"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -134,6 +135,7 @@ type FindOptions struct {
 	showNodeLabels  []string
 	showLabels      []string
 	showAnnotations []string
+	output          string
 
 	args []string
 
@@ -215,6 +217,22 @@ func (v *negatablePFlagValue) Set(value string) error {
 	*v.included = true
 	return v.value.Set(value)
 }
+
+type outputFormatValue struct {
+	output *string
+}
+
+func (v *outputFormatValue) String() string { return *v.output }
+
+func (v *outputFormatValue) Set(value string) error {
+	if err := printers.ValidateOutputFormat(value); err != nil {
+		return err
+	}
+	*v.output = value
+	return nil
+}
+
+func (*outputFormatValue) Type() string { return "string" }
 
 // NewFindOptions provides an instance of FindOptions with default values.
 func NewFindOptions(streams genericiooptions.IOStreams) *FindOptions {
@@ -323,6 +341,8 @@ func newCmdFind(o *FindOptions) *cobra.Command {
 		BoolVar(&o.naturalSort, "natural-sort", false, "Sort resource names in natural order.")
 	cmd.Flags().StringSliceVar(&o.nodeConditions, "node-condition", nil,
 		"Filter nodes by conditions; format: ConditionType=Status (e.g. 'Ready=True', 'SchedulingDisabled=False'). Supports custom conditions from NPD or other agents.")
+	cmd.Flags().
+		VarP(&outputFormatValue{output: &o.output}, "output", "o", "Output format: json, yaml, kyaml, name, go-template=EXPR (or gotemplate=EXPR), or jsonpath=EXPR.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 	namespaceFlag := cmd.Flags().Lookup("namespace")
@@ -520,6 +540,7 @@ func (o *FindOptions) Validate() error {
 			WithLabels(o.showLabels).
 			WithNodeLabels(o.showNodeLabels).
 			WithAnnotations(o.showAnnotations).
+			WithOutput(o.output).
 			WithExecutorGetter(func(method string, url *url.URL) (remotecommand.Executor, error) {
 				return remotecommand.NewSPDYExecutor(
 					o.rest,

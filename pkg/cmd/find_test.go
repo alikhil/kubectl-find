@@ -204,7 +204,7 @@ func TestEveryFlagParses(t *testing.T) {
 		"--server", "https://api.example.test", "--skip-confirm", "--status", "Running",
 		"--tls-server-name", "api.example.test", "--token", "token",
 		"--drain-skip-wait-for-delete-timeout", "60", "--drain-timeout", "2m",
-		"--uncordon", "--user", "user-a", "--not",
+		"--uncordon", "--user", "user-a", "--not", "--output", "json",
 	}
 	if err := command.ParseFlags(args); err != nil {
 		t.Fatalf("parse every flag: %v", err)
@@ -254,6 +254,7 @@ func TestEveryFlagParses(t *testing.T) {
 		"node-condition":                     true,
 		"node-labels":                        true,
 		"not":                                true,
+		"output":                             true,
 		"patch":                              true,
 		"drain-pod-selector":                 true,
 		"proxy-url":                          true,
@@ -293,4 +294,16 @@ func TestCommandDisplayNameUsesPluginName(t *testing.T) {
 	require.Equal(t, "fd [resource type] [flags]", command.Use)
 	require.NotContains(t, command.Example, "kubectl find")
 	require.Contains(t, command.Example, "kubectl fd")
+}
+
+func TestOutputFormatIsValidatedDuringFlagParsing(t *testing.T) {
+	t.Parallel()
+
+	command := NewCmdFind(genericiooptions.IOStreams{})
+	err := command.ParseFlags([]string{"--output", "wide"})
+	require.EqualError(
+		t,
+		err,
+		`invalid argument "wide" for "-o, --output" flag: unsupported output format "wide"; supported formats are json, yaml, kyaml, name, go-template=EXPR, and jsonpath=EXPR`,
+	)
 }
