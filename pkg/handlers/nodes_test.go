@@ -3,8 +3,10 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"errors"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,6 +33,54 @@ func TestNodeHandlerMatchesNegatedFilters(t *testing.T) {
 	assert.True(t, handler.matches(node, &ActionOptions{
 		ExcludedNameRegex: regexp.MustCompile("control-plane$"),
 	}))
+}
+
+func TestRewriteDrainFlagGuidance(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "emptyDir data",
+			input: "cannot delete Pods with local storage (use --delete-emptydir-data to override)",
+			want:  "cannot delete Pods with local storage (use --drain-delete-emptydir-data to override)",
+		},
+		{
+			name:  "daemonset-managed pods",
+			input: "cannot delete DaemonSet-managed Pods (use --ignore-daemonsets to ignore)",
+			want:  "cannot delete DaemonSet-managed Pods (use --drain-ignore-daemonsets to ignore)",
+		},
+		{
+			name:  "both flags",
+			input: "use --ignore-daemonsets and --delete-emptydir-data",
+			want:  "use --drain-ignore-daemonsets and --drain-delete-emptydir-data",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cause := errors.New(tt.input)
+			err := rewriteDrainFlagGuidance(cause)
+			require.EqualError(t, err, tt.want)
+			require.ErrorIs(t, err, cause)
+		})
+	}
+}
+
+func TestNodeHandlerUsesKubectlDrainEvictionRetryInterval(t *testing.T) {
+	t.Parallel()
+
+	handler := &NodeHandler{clientSet: fake.NewSimpleClientset()}
+	helper := handler.newDrainHelper(context.Background(), ActionOptions{
+		Streams: &genericclioptions.IOStreams{Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}},
+	})
+
+	require.Equal(t, 5*time.Second, helper.EvictErrorRetryDelay)
 }
 
 func TestNodeHandlerListIncludesKubeletVersion(t *testing.T) {

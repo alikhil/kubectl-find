@@ -26,6 +26,8 @@ type NodeHandler struct {
 	printer   printers.BatchPrinter
 }
 
+const defaultDrainEvictionRetryInterval = 5 * time.Second
+
 func (h *NodeHandler) IsExecutable() bool { return false }
 
 func (h *NodeHandler) HandleAction(ctx context.Context, options ActionOptions) error {
@@ -72,21 +74,7 @@ func (h *NodeHandler) HandleAction(ctx context.Context, options ActionOptions) e
 		}
 	}
 
-	drainer := &drain.Helper{
-		Ctx:                             ctx,
-		Client:                          h.clientSet,
-		Force:                           options.Force,
-		IgnoreAllDaemonSets:             options.DrainIgnoreDaemonSets,
-		DeleteEmptyDirData:              options.DrainDeleteEmptyDirData,
-		GracePeriodSeconds:              options.DrainGracePeriodSeconds,
-		Timeout:                         options.DrainTimeout,
-		PodSelector:                     options.DrainPodSelector,
-		DisableEviction:                 options.DrainDisableEviction,
-		SkipWaitForDeleteTimeoutSeconds: options.DrainSkipWaitDeleteTimeout,
-		ChunkSize:                       options.DrainChunkSize,
-		Out:                             options.Streams.Out,
-		ErrOut:                          options.Streams.ErrOut,
-	}
+	drainer := h.newDrainHelper(ctx, options)
 	for i := range nodes {
 		node := &nodes[i]
 		if options.Action == ActionCordon || options.Action == ActionDrain {
@@ -106,12 +94,53 @@ func (h *NodeHandler) HandleAction(ctx context.Context, options ActionOptions) e
 			continue
 		}
 		if err := drain.RunNodeDrain(drainer, node.Name); err != nil {
-			return fmt.Errorf("failed to drain node %s: %w", node.Name, err)
+			return fmt.Errorf("failed to drain node %s: %w", node.Name, rewriteDrainFlagGuidance(err))
 		}
 		fmt.Fprintf(options.Streams.Out, "node/%s drained\n", node.Name)
 	}
 	return nil
 }
+
+func (h *NodeHandler) newDrainHelper(ctx context.Context, options ActionOptions) *drain.Helper {
+	return &drain.Helper{
+		Ctx:                             ctx,
+		Client:                          h.clientSet,
+		Force:                           options.Force,
+		IgnoreAllDaemonSets:             options.DrainIgnoreDaemonSets,
+		DeleteEmptyDirData:              options.DrainDeleteEmptyDirData,
+		GracePeriodSeconds:              options.DrainGracePeriodSeconds,
+		Timeout:                         options.DrainTimeout,
+		PodSelector:                     options.DrainPodSelector,
+		DisableEviction:                 options.DrainDisableEviction,
+		SkipWaitForDeleteTimeoutSeconds: options.DrainSkipWaitDeleteTimeout,
+		ChunkSize:                       options.DrainChunkSize,
+		EvictErrorRetryDelay:            defaultDrainEvictionRetryInterval,
+		Out:                             options.Streams.Out,
+		ErrOut:                          options.Streams.ErrOut,
+	}
+}
+
+// rewriteDrainFlagGuidance replaces kubectl drain flags in upstream errors with
+// their kubectl fd equivalents.
+func rewriteDrainFlagGuidance(err error) error {
+	message := strings.NewReplacer(
+		"--ignore-daemonsets", "--drain-ignore-daemonsets",
+		"--delete-emptydir-data", "--drain-delete-emptydir-data",
+	).Replace(err.Error())
+	if message == err.Error() {
+		return err
+	}
+	return drainFlagGuidanceError{cause: err, message: message}
+}
+
+type drainFlagGuidanceError struct {
+	cause   error
+	message string
+}
+
+func (e drainFlagGuidanceError) Error() string { return e.message }
+
+func (e drainFlagGuidanceError) Unwrap() error { return e.cause }
 
 func (h *NodeHandler) matches(node v1.Node, options *ActionOptions) bool {
 	if options.NameRegex != nil && !options.NameRegex.MatchString(node.Name) {
