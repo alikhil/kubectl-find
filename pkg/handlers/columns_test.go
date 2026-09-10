@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
@@ -93,6 +94,142 @@ func Test_GetColumnsForPods_MatchesKubectlGet(t *testing.T) {
 	require.Equal(t, "Running", columns[1].Value(obj))
 	require.Equal(t, "RESTARTS", columns[2].Header)
 	require.Equal(t, "3", columns[2].Value(obj))
+}
+
+func TestGetPodDisplayStatusMatchesKubectl(t *testing.T) {
+	t.Parallel()
+
+	now := metav1.Now()
+	tests := []struct {
+		name string
+		pod  *v1.Pod
+		want string
+	}{
+		{
+			name: "crash loop back off",
+			pod: &v1.Pod{
+				Status: v1.PodStatus{
+					Phase: v1.PodRunning,
+					ContainerStatuses: []v1.ContainerStatus{{
+						State: v1.ContainerState{Waiting: &v1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}},
+					}},
+				},
+			},
+			want: "CrashLoopBackOff",
+		},
+		{
+			name: "container creating",
+			pod: &v1.Pod{
+				Status: v1.PodStatus{
+					Phase: v1.PodPending,
+					ContainerStatuses: []v1.ContainerStatus{{
+						State: v1.ContainerState{Waiting: &v1.ContainerStateWaiting{Reason: "ContainerCreating"}},
+					}},
+				},
+			},
+			want: "ContainerCreating",
+		},
+		{
+			name: "pending without container status",
+			pod:  &v1.Pod{Status: v1.PodStatus{Phase: v1.PodPending}},
+			want: "Pending",
+		},
+		{
+			name: "initializing",
+			pod: &v1.Pod{
+				Spec: v1.PodSpec{InitContainers: []v1.Container{{Name: "init"}}},
+				Status: v1.PodStatus{
+					Phase: v1.PodPending,
+					InitContainerStatuses: []v1.ContainerStatus{{
+						Name:  "init",
+						State: v1.ContainerState{Waiting: &v1.ContainerStateWaiting{Reason: "ImagePullBackOff"}},
+					}},
+				},
+			},
+			want: "Init:ImagePullBackOff",
+		},
+		{
+			name: "terminating",
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: &now},
+				Status:     v1.PodStatus{Phase: v1.PodRunning},
+			},
+			want: "Terminating",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, getPodDisplayStatus(tt.pod))
+		})
+	}
+}
+
+func TestGetPodRestartsMatchesKubectl(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	completedInit := v1.ContainerStatus{
+		Name:         "init",
+		RestartCount: 4,
+		State: v1.ContainerState{Terminated: &v1.ContainerStateTerminated{
+			ExitCode:   0,
+			FinishedAt: metav1.NewTime(now.Add(-10 * time.Minute)),
+		}},
+		LastTerminationState: v1.ContainerState{Terminated: &v1.ContainerStateTerminated{
+			FinishedAt: metav1.NewTime(now.Add(-10 * time.Minute)),
+		}},
+	}
+	tests := []struct {
+		name string
+		pod  *v1.Pod
+		want string
+	}{
+		{
+			name: "restarts without a known termination time",
+			pod: &v1.Pod{Status: v1.PodStatus{ContainerStatuses: []v1.ContainerStatus{
+				{RestartCount: 3},
+			}}},
+			want: "3",
+		},
+		{
+			name: "most recent container restart",
+			pod: &v1.Pod{Status: v1.PodStatus{ContainerStatuses: []v1.ContainerStatus{
+				{
+					RestartCount: 1,
+					LastTerminationState: v1.ContainerState{
+						Terminated: &v1.ContainerStateTerminated{FinishedAt: metav1.NewTime(now.Add(-2 * time.Hour))},
+					},
+				},
+				{
+					RestartCount: 2,
+					LastTerminationState: v1.ContainerState{
+						Terminated: &v1.ContainerStateTerminated{FinishedAt: metav1.NewTime(now.Add(-5 * time.Minute))},
+					},
+				},
+			}}},
+			want: "3 (5m ago)",
+		},
+		{
+			name: "completed init container restarts are excluded",
+			pod: &v1.Pod{
+				Spec: v1.PodSpec{InitContainers: []v1.Container{{Name: "init"}}},
+				Status: v1.PodStatus{
+					InitContainerStatuses: []v1.ContainerStatus{completedInit},
+					ContainerStatuses:     []v1.ContainerStatus{{RestartCount: 2}},
+				},
+			},
+			want: "2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, getPodRestarts(tt.pod))
+		})
+	}
 }
 
 func Test_GetColumnsForDeployments(t *testing.T) {

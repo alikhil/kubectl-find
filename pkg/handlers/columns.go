@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/alikhil/kubectl-find/pkg/printers"
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/jsonpath"
@@ -58,10 +60,11 @@ func getColumnsForPods(opts HandlerOptions) []printers.Column {
 		{
 			Header: "STATUS",
 			Value: func(obj unstructured.Unstructured) string {
-				if status, found, _ := unstructured.NestedString(obj.Object, "status", "phase"); found {
-					return status
+				pod, err := toPod(obj)
+				if err != nil {
+					return UnknownStr
 				}
-				return UnknownStr
+				return getPodDisplayStatus(pod)
 			},
 		},
 		{
@@ -71,11 +74,7 @@ func getColumnsForPods(opts HandlerOptions) []printers.Column {
 				if err != nil {
 					return UnknownStr
 				}
-				totalRestarts := 0
-				for _, cs := range pod.Status.ContainerStatuses {
-					totalRestarts += int(cs.RestartCount)
-				}
-				return strconv.Itoa(totalRestarts)
+				return getPodRestarts(pod)
 			},
 		},
 	}
@@ -96,6 +95,181 @@ func getColumnsForPods(opts HandlerOptions) []printers.Column {
 		})
 	}
 	return columns
+}
+
+// getPodRestarts follows kubectl's restart count and last-restart presentation rules.
+func getPodRestarts(pod *v1.Pod) string {
+	restarts := 0
+	restartableInitRestarts := 0
+	lastRestart := metav1.NewTime(time.Time{})
+	lastRestartableInitRestart := metav1.NewTime(time.Time{})
+
+	initContainers := make(map[string]*v1.Container, len(pod.Spec.InitContainers))
+	for i := range pod.Spec.InitContainers {
+		initContainers[pod.Spec.InitContainers[i].Name] = &pod.Spec.InitContainers[i]
+	}
+
+	for _, container := range pod.Status.InitContainerStatuses {
+		restarts += int(container.RestartCount)
+		lastRestart = latestTerminationTime(lastRestart, container.LastTerminationState)
+
+		if isRestartableInitContainer(initContainers[container.Name]) {
+			restartableInitRestarts += int(container.RestartCount)
+			lastRestartableInitRestart = latestTerminationTime(
+				lastRestartableInitRestart,
+				container.LastTerminationState,
+			)
+		}
+	}
+
+	if !podIsInitializing(pod, initContainers) || podInitialized(pod.Status.Conditions) {
+		restarts = restartableInitRestarts
+		lastRestart = lastRestartableInitRestart
+	}
+	for _, container := range pod.Status.ContainerStatuses {
+		restarts += int(container.RestartCount)
+		lastRestart = latestTerminationTime(lastRestart, container.LastTerminationState)
+	}
+
+	if restarts == 0 || lastRestart.IsZero() {
+		return strconv.Itoa(restarts)
+	}
+	return fmt.Sprintf("%d (%s ago)", restarts, duration.HumanDuration(time.Since(lastRestart.Time)))
+}
+
+func podIsInitializing(pod *v1.Pod, initContainers map[string]*v1.Container) bool {
+	for _, container := range pod.Status.InitContainerStatuses {
+		switch {
+		case container.State.Terminated != nil && container.State.Terminated.ExitCode == 0:
+			continue
+		case isRestartableInitContainer(initContainers[container.Name]) && container.Started != nil && *container.Started:
+			continue
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+func latestTerminationTime(latest metav1.Time, state v1.ContainerState) metav1.Time {
+	if state.Terminated == nil || !latest.Before(&state.Terminated.FinishedAt) {
+		return latest
+	}
+	return state.Terminated.FinishedAt
+}
+
+// getPodDisplayStatus follows kubectl's pod status presentation rules.
+func getPodDisplayStatus(pod *v1.Pod) string {
+	reason := string(pod.Status.Phase)
+	if pod.Status.Reason != "" {
+		reason = pod.Status.Reason
+	}
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == v1.PodScheduled && condition.Reason == v1.PodReasonSchedulingGated {
+			reason = v1.PodReasonSchedulingGated
+		}
+	}
+
+	initContainers := make(map[string]*v1.Container, len(pod.Spec.InitContainers))
+	for i := range pod.Spec.InitContainers {
+		initContainers[pod.Spec.InitContainers[i].Name] = &pod.Spec.InitContainers[i]
+	}
+
+	initializing := false
+	for i, container := range pod.Status.InitContainerStatuses {
+		initContainer := initContainers[container.Name]
+		switch {
+		case container.State.Terminated != nil && container.State.Terminated.ExitCode == 0:
+			continue
+		case isRestartableInitContainer(initContainer) && container.Started != nil && *container.Started:
+			continue
+		case container.State.Terminated != nil:
+			switch {
+			case container.State.Terminated.Reason != "":
+				reason = "Init:" + container.State.Terminated.Reason
+			case container.State.Terminated.Signal != 0:
+				reason = fmt.Sprintf("Init:Signal:%d", container.State.Terminated.Signal)
+			default:
+				reason = fmt.Sprintf("Init:ExitCode:%d", container.State.Terminated.ExitCode)
+			}
+			initializing = true
+		case container.State.Waiting != nil && container.State.Waiting.Reason != "" && container.State.Waiting.Reason != "PodInitializing":
+			reason = "Init:" + container.State.Waiting.Reason
+			initializing = true
+		default:
+			reason = fmt.Sprintf("Init:%d/%d", i, len(pod.Spec.InitContainers))
+			initializing = true
+		}
+		break
+	}
+
+	if !initializing || podInitialized(pod.Status.Conditions) {
+		hasRunning := false
+		errorReason := ""
+		for i := len(pod.Status.ContainerStatuses) - 1; i >= 0; i-- {
+			container := pod.Status.ContainerStatuses[i]
+			switch {
+			case container.State.Waiting != nil && container.State.Waiting.Reason != "":
+				reason = container.State.Waiting.Reason
+			case container.State.Terminated != nil:
+				switch {
+				case container.State.Terminated.Reason != "":
+					reason = container.State.Terminated.Reason
+				case container.State.Terminated.Signal != 0:
+					reason = fmt.Sprintf("Signal:%d", container.State.Terminated.Signal)
+				default:
+					reason = fmt.Sprintf("ExitCode:%d", container.State.Terminated.ExitCode)
+				}
+				if container.State.Terminated.ExitCode != 0 {
+					errorReason = reason
+				}
+			case container.Ready && container.State.Running != nil:
+				hasRunning = true
+			}
+		}
+		if reason == "Completed" {
+			switch {
+			case hasRunning && podReady(pod.Status.Conditions):
+				reason = "Running"
+			case errorReason != "":
+				reason = errorReason
+			case hasRunning:
+				reason = "NotReady"
+			}
+		}
+	}
+
+	if pod.DeletionTimestamp != nil && pod.Status.Reason == "NodeLost" {
+		return unknownString
+	}
+	if pod.DeletionTimestamp != nil && pod.Status.Phase != v1.PodSucceeded && pod.Status.Phase != v1.PodFailed {
+		return "Terminating"
+	}
+	return reason
+}
+
+func isRestartableInitContainer(container *v1.Container) bool {
+	return container != nil &&
+		container.RestartPolicy != nil &&
+		*container.RestartPolicy == v1.ContainerRestartPolicyAlways
+}
+
+func podInitialized(conditions []v1.PodCondition) bool {
+	for _, condition := range conditions {
+		if condition.Type == v1.PodInitialized && condition.Status == v1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func podReady(conditions []v1.PodCondition) bool {
+	for _, condition := range conditions {
+		if condition.Type == v1.PodReady && condition.Status == v1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
 
 func getColumnsForServices(_ HandlerOptions) []printers.Column {

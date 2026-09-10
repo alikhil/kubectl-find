@@ -116,13 +116,14 @@ func (a Action) String() string {
 	case ActionDrain:
 		return "drain"
 	default:
-		return "Unknown"
+		return unknownString
 	}
 }
 
 const (
-	UnknownStr = "<unknown>"
-	NoneStr    = "<none>"
+	UnknownStr    = "<unknown>"
+	NoneStr       = "<none>"
+	unknownString = "Unknown"
 )
 
 type HandlerOptions struct {

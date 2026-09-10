@@ -26,7 +26,7 @@ import (
 )
 
 //nolint:gochecknoglobals
-var ValidPodStatuses = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
+var ValidPodStatuses = []string{"Pending", "Running", "Succeeded", "Failed", unknownString}
 
 func IsValidPodStatus(status string) bool {
 	status = strings.ToLower(status)
