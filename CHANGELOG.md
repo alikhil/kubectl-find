@@ -1,3 +1,14 @@
+## v0.18.0 (2026-09-11)
+
+### Feat
+
+- bring parity with kubectl get pods on statuses and restarts
+- add --output flag with json/yaml/kyaml/gotemplate/jsonpath support
+
+### Fix
+
+- drain command output, change default retry interval
+
 ## v0.17.0 (2026-09-10)
 
 ### Feat
