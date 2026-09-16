@@ -60,6 +60,7 @@ Flags:
   -e, --exec string                    Execute a command on all found pods.
       --annotate string                Annotate all found resources; format: k=v[,k2=v2] to add/overwrite or k- to remove annotations.
       --delete                         Delete all matched resources.
+      --evict                          Evict all matched pods, respecting PodDisruptionBudgets.
       --cordon                         Cordon all matched nodes.
       --uncordon                       Uncordon all matched nodes.
       --drain                          Cordon and drain all matched nodes.
@@ -143,6 +144,14 @@ kubectl fd pods -l app=nginx --exec 'nginx -s reload'
 
 ```shell
 kubectl fd pods --status failed -A --delete
+```
+
+### Evict matching pods
+
+Eviction respects PodDisruptionBudgets, unlike deleting a pod directly.
+
+```shell
+kubectl fd pods -l app=api --evict
 ```
 
 ### Manage matching nodes

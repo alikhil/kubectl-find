@@ -14,6 +14,7 @@ import (
 	"github.com/alikhil/kubectl-find/pkg/prompts"
 	"github.com/alikhil/kubectl-find/pkg/sortby"
 	v1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -158,6 +159,39 @@ func (p *PodHandler) HandleAction(ctx context.Context, options ActionOptions) er
 			}
 		}
 
+		return nil
+	case ActionEvict:
+		if !options.SkipConfirm {
+			_, err = options.Streams.ErrOut.Write([]byte("The following pods will be evicted:\n"))
+			if err != nil {
+				return fmt.Errorf("failed to write to error output: %w", err)
+			}
+			for _, pod := range matchedPods {
+				_, err = fmt.Fprintf(options.Streams.ErrOut, "- %s in namespace %s\n", pod.Name, pod.Namespace)
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
+			}
+			if !prompts.AskForConfirmation(options.Streams) {
+				_, err = options.Streams.ErrOut.Write([]byte("Eviction cancelled.\n"))
+				if err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
+				return nil
+			}
+		}
+		for _, pod := range matchedPods {
+			err = p.clientSet.PolicyV1().Evictions(pod.Namespace).Evict(ctx, &policyv1.Eviction{
+				ObjectMeta: metav1.ObjectMeta{Name: pod.Name, Namespace: pod.Namespace},
+			})
+			if err != nil {
+				return fmt.Errorf("failed to evict pod %s: %w", pod.Name, err)
+			}
+			_, err = fmt.Fprintf(options.Streams.Out, "Evicted pod %s in namespace %s\n", pod.Name, pod.Namespace)
+			if err != nil {
+				return fmt.Errorf("failed to write to output: %w", err)
+			}
+		}
 		return nil
 	case ActionPatch:
 		if options.Patch == "" {

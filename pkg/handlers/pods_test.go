@@ -17,12 +17,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestPodsHandler(t *testing.T) {
@@ -393,6 +395,29 @@ func TestPodsHandler(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name: "Evict matching pods",
+			prepare: func(t *testing.T, f *fields, s *shared) error {
+				s.in.Write([]byte("y\n"))
+				client := f.clientSet.(*fake.Clientset)
+				client.PrependReactor("create", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					require.Equal(t, "eviction", action.GetSubresource())
+					eviction := action.(k8stesting.CreateAction).GetObject().(*policyv1.Eviction)
+					require.Equal(t, "test-pod", eviction.Name)
+					require.Equal(t, "default", eviction.Namespace)
+					return true, nil, nil
+				})
+				return nil
+			},
+			args: args{options: ActionOptions{Namespace: "default", Action: ActionEvict}},
+			shared: shared{resources: []runtime.Object{
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "default"}},
+			}},
+			want: want{check: func(t *testing.T, _ *fields, s *shared) {
+				assert.Contains(t, s.out.String(), "Evicted pod test-pod in namespace default")
+				assert.Contains(t, s.errOut.String(), "The following pods will be evicted:")
+			}},
 		},
 		{
 			name: "Delete matching pods with confirmation",

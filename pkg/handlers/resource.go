@@ -96,6 +96,7 @@ const (
 	ActionUncordon
 	ActionDrain
 	ActionRestart
+	ActionEvict
 )
 
 func (a Action) String() string {
@@ -118,6 +119,8 @@ func (a Action) String() string {
 		return "drain"
 	case ActionRestart:
 		return "restart"
+	case ActionEvict:
+		return "evict"
 	default:
 		return unknownString
 	}
