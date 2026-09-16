@@ -219,6 +219,53 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 		return nil
 	}
 
+	if options.Action == ActionRestart {
+		if !SupportsRolloutRestart(h.opts.Resource.GroupVersionResource) {
+			return fmt.Errorf("restart action is not supported for %s", h.opts.Resource.PluralName)
+		}
+		if !options.SkipConfirm {
+			fmt.Fprintf(options.Streams.ErrOut, "The following %s will be restarted:\n", h.opts.Resource.PluralName)
+			for _, res := range matchedItems {
+				if err = h.printResource(res, options, options.Streams.ErrOut); err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
+			}
+			if !prompts.AskForConfirmation(options.Streams) {
+				if _, err = options.Streams.ErrOut.Write([]byte("Restart cancelled.\n")); err != nil {
+					return fmt.Errorf("failed to write to error output: %w", err)
+				}
+				return nil
+			}
+		}
+
+		patchBytes := []byte(fmt.Sprintf(
+			`{"spec":{"template":{"metadata":{"annotations":{"kubectl.kubernetes.io/restartedAt":%q}}}}}`,
+			time.Now().Format(time.RFC3339),
+		))
+		for _, item := range matchedItems {
+			if h.opts.Resource.GroupVersionResource == DeploymentType {
+				paused, found, nestedErr := unstructured.NestedBool(item.Object, "spec", "paused")
+				if nestedErr != nil {
+					return fmt.Errorf("failed to read deployment %s pause state: %w", item.GetName(), nestedErr)
+				}
+				if found && paused {
+					return errors.New("can't restart paused deployment (run rollout resume first)")
+				}
+			}
+			if _, err = resources.Patch(
+				ctx,
+				item.GetName(),
+				k8s_types.MergePatchType,
+				patchBytes,
+				v1.PatchOptions{},
+			); err != nil {
+				return fmt.Errorf("failed to restart %s %s: %w", h.opts.Resource.SingularName, item.GetName(), err)
+			}
+			fmt.Fprintf(options.Streams.Out, "%s/%s restarted\n", h.opts.Resource.SingularName, item.GetName())
+		}
+		return nil
+	}
+
 	return fmt.Errorf("unsupported action: %s", options.Action)
 }
 

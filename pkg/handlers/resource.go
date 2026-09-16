@@ -95,6 +95,7 @@ const (
 	ActionCordon
 	ActionUncordon
 	ActionDrain
+	ActionRestart
 )
 
 func (a Action) String() string {
@@ -115,9 +116,16 @@ func (a Action) String() string {
 		return "uncordon"
 	case ActionDrain:
 		return "drain"
+	case ActionRestart:
+		return "restart"
 	default:
 		return unknownString
 	}
+}
+
+// SupportsRolloutRestart reports whether kubectl rollout restart supports resource.
+func SupportsRolloutRestart(resource schema.GroupVersionResource) bool {
+	return resource == DeploymentType || resource == DaemonSetType || resource == StatefulSetType
 }
 
 const (

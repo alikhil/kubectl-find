@@ -30,7 +30,7 @@ kubectl fd pods --not --controller apps/daemonsets
 
 `--not -n <namespace>` searches all namespaces and excludes that namespace.
 
-and then **print, patch, annotate, delete, or manage matching nodes**.
+and then **print, patch, annotate, delete, restart workloads, or manage matching nodes**.
 
 ## Usage
 
@@ -63,6 +63,7 @@ Flags:
       --cordon                         Cordon all matched nodes.
       --uncordon                       Uncordon all matched nodes.
       --drain                          Cordon and drain all matched nodes.
+      --restart                        Restart all matched deployments, daemonsets, or statefulsets.
   -y, --skip-confirm                   Skip confirmation prompt before performing actions on resources.
       --force                          If true, immediately remove resources from API and bypass graceful deletion. Can only be used with --delete flag.
 ```
@@ -156,6 +157,15 @@ kubectl fd nodes --name 'worker-.*' --uncordon
 `--drain-delete-emptydir-data`, `--drain-grace-period`, `--drain-timeout`,
 `--drain-pod-selector`, `--drain-disable-eviction`,
 `--drain-skip-wait-for-delete-timeout`, and `--drain-chunk-size`.
+
+### Restart matching workloads
+
+`--restart` performs the same rollout restart as `kubectl rollout restart` for
+deployments, daemonsets, and statefulsets.
+
+```shell
+kubectl fd deployments -l app=api --restart
+```
 
 ### Annotate resources
 

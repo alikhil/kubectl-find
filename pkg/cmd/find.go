@@ -94,6 +94,7 @@ type FindOptions struct {
 	cordon        bool
 	uncordon      bool
 	drain         bool
+	restart       bool
 	exec          string
 	patch         string
 	annotate      string
@@ -290,6 +291,7 @@ func newCmdFind(o *FindOptions) *cobra.Command {
 	cmd.Flags().BoolVar(&o.cordon, "cordon", false, "Cordon all matched nodes.")
 	cmd.Flags().BoolVar(&o.uncordon, "uncordon", false, "Uncordon all matched nodes.")
 	cmd.Flags().BoolVar(&o.drain, "drain", false, "Cordon and drain all matched nodes.")
+	cmd.Flags().BoolVar(&o.restart, "restart", false, "Restart all matched deployments, daemonsets, or statefulsets.")
 	cmd.Flags().StringVarP(&o.exec, "exec", "e", "", "Execute a command on all found pods.")
 	cmd.Flags().StringVarP(&o.patch, "patch", "p", "", "Patch all found resources with the specified JSON patch.")
 	cmd.Flags().StringVar(&o.annotate, "annotate", "",
@@ -577,7 +579,7 @@ func (o *FindOptions) Validate() error {
 		action = handlers.ActionExec
 	}
 	if o.cordon || o.uncordon || o.drain {
-		if o.delete || o.patch != "" || o.exec != "" || o.annotate != "" {
+		if o.delete || o.patch != "" || o.exec != "" || o.annotate != "" || o.restart {
 			return errors.New("cannot combine node actions with other actions")
 		}
 		if (o.cordon && o.uncordon) || (o.cordon && o.drain) || (o.uncordon && o.drain) {
@@ -595,11 +597,23 @@ func (o *FindOptions) Validate() error {
 			action = handlers.ActionDrain
 		}
 	}
+	if o.restart {
+		if o.delete || o.patch != "" || o.exec != "" || o.annotate != "" {
+			return errors.New("cannot combine --restart with other actions")
+		}
+		if !handlers.SupportsRolloutRestart(o.resourceType.GroupVersionResource) {
+			return fmt.Errorf(
+				"restart action is only supported for deployments, daemonsets, and statefulsets, but got %q",
+				o.resourceType.PluralName,
+			)
+		}
+		action = handlers.ActionRestart
+	}
 
 	var annotateCfg handlers.AnnotateConfig
 	if o.annotate != "" {
-		if o.delete || o.patch != "" || o.exec != "" {
-			return errors.New("cannot combine --annotate with --delete, --patch, or --exec flags")
+		if o.delete || o.patch != "" || o.exec != "" || o.restart {
+			return errors.New("cannot combine --annotate with --delete, --patch, --exec, or --restart flags")
 		}
 		var err2 error
 		annotateCfg, err2 = handlers.ParseAnnotateFlag(o.annotate)

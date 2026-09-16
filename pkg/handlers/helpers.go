@@ -9,7 +9,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-const nodePluralName = "nodes"
+const (
+	nodePluralName        = "nodes"
+	namespaceResourceType = "namespace"
+)
 
 func getNestedColumn(t *testing.T, obj unstructured.Unstructured, column ...string) string {
 	t.Helper()
@@ -55,7 +58,7 @@ func getResource(resourceType string) Resource {
 			SingularName: "secret",
 			IsNamespaced: true,
 		}
-	case "namespace":
+	case namespaceResourceType:
 		return Resource{
 			GroupVersionResource: schema.GroupVersionResource{
 				Group:    "",
@@ -63,7 +66,7 @@ func getResource(resourceType string) Resource {
 				Resource: "namespaces",
 			},
 			PluralName:   "namespaces",
-			SingularName: "namespace",
+			SingularName: namespaceResourceType,
 			IsNamespaced: false,
 		}
 	case "node":

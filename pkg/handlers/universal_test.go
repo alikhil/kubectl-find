@@ -18,7 +18,9 @@ import (
 	k8s_types "k8s.io/apimachinery/pkg/types"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
@@ -1017,4 +1019,57 @@ func TestUniversalHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, test(tt.prepare, tt.args, tt.shared, tt.want))
 	}
+}
+
+func TestUniversalHandlerRestart(t *testing.T) {
+	t.Parallel()
+
+	deployment := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]interface{}{
+			"name":      "api",
+			"namespace": "default",
+		},
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"metadata": map[string]interface{}{},
+			},
+		},
+	}}
+	client := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{DeploymentType: "DeploymentList"},
+		deployment,
+	)
+	streams, _, out, _ := genericclioptions.NewTestIOStreams()
+	handler := NewUniversalHandler(UniversalHandlerOptions{
+		Client: client,
+		Resource: Resource{
+			GroupVersionResource: DeploymentType,
+			PluralName:           "deployments",
+			SingularName:         "deployment",
+			IsNamespaced:         true,
+		},
+	})
+
+	err := handler.HandleAction(t.Context(), ActionOptions{
+		Action:      ActionRestart,
+		Namespace:   "default",
+		SkipConfirm: true,
+		Streams:     &streams,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "deployment/api restarted\n", out.String())
+
+	updated, err := client.Resource(DeploymentType).Namespace("default").Get(t.Context(), "api", metav1.GetOptions{})
+	require.NoError(t, err)
+	restartedAt, found, err := unstructured.NestedString(
+		updated.Object,
+		"spec", "template", "metadata", "annotations", "kubectl.kubernetes.io/restartedAt",
+	)
+	require.NoError(t, err)
+	require.True(t, found)
+	_, err = time.Parse(time.RFC3339, restartedAt)
+	require.NoError(t, err)
 }
