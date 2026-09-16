@@ -1,3 +1,10 @@
+## v0.19.0 (2026-09-17)
+
+### Feat
+
+- add --evict action support for pods
+- add support of --restart action for builtin workloads
+
 ## v0.18.0 (2026-09-11)
 
 ### Feat
