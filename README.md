@@ -2,6 +2,7 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/alikhil/kubectl-find)
 ![GitHub License](https://img.shields.io/github/license/alikhil/kubectl-find)
+[![Github All Releases](https://img.shields.io/github/downloads/alikhil/kubectl-find/total.svg)]()
 
 It's a plugin for `kubectl` that gives you a **UNIX find**-like experience.
 
