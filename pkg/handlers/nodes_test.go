@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/itchyny/gojq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
@@ -154,4 +155,114 @@ func TestNodeHandlerFiltersUncordonedNodesBySchedulingDisabledCondition(t *testi
 	require.NoError(t, err)
 	require.Contains(t, output.String(), "worker-1")
 	require.NotContains(t, output.String(), "worker-2")
+}
+
+func TestNodeHandlerAnnotatesMatchingNodes(t *testing.T) {
+	t.Parallel()
+
+	query, err := gojq.Parse(`.status.nodeInfo.kubeletVersion | select(test("^v1\\.30\\."))`)
+	require.NoError(t, err)
+	clientSet := fake.NewSimpleClientset(
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "matching-node",
+				Labels: map[string]string{"pool": "batch"},
+			},
+			Status: v1.NodeStatus{NodeInfo: v1.NodeSystemInfo{KubeletVersion: "v1.30.9"}},
+		},
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "other-version",
+				Labels: map[string]string{"pool": "batch"},
+			},
+			Status: v1.NodeStatus{NodeInfo: v1.NodeSystemInfo{KubeletVersion: "v1.31.4"}},
+		},
+	)
+	handler, err := GetResourceHandler(
+		Resource{GroupVersionResource: NodeType},
+		NewHandlerOptions().WithClientSet(clientSet),
+	)
+	require.NoError(t, err)
+
+	err = handler.HandleAction(t.Context(), ActionOptions{
+		Action:        ActionAnnotate,
+		LabelSelector: "pool=batch",
+		JQQuery:       query,
+		SkipConfirm:   true,
+		Annotate:      AnnotateConfig{Add: map[string]string{"maintenance.example/enabled": "true"}},
+		Streams:       &genericclioptions.IOStreams{Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}},
+	})
+	require.NoError(t, err)
+
+	matching, err := clientSet.CoreV1().Nodes().Get(t.Context(), "matching-node", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, "true", matching.Annotations["maintenance.example/enabled"])
+
+	nonMatching, err := clientSet.CoreV1().Nodes().Get(t.Context(), "other-version", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.NotContains(t, nonMatching.Annotations, "maintenance.example/enabled")
+}
+
+func TestHandlerActionCompatibilityMatrix(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		handler   ResourceHandler
+		supported []Action
+	}{
+		{
+			name:      "pods",
+			handler:   &PodHandler{},
+			supported: []Action{ActionList, ActionDelete, ActionPatch, ActionExec, ActionAnnotate, ActionEvict},
+		},
+		{
+			name:      "nodes",
+			handler:   &NodeHandler{},
+			supported: []Action{ActionList, ActionAnnotate, ActionCordon, ActionUncordon, ActionDrain},
+		},
+		{
+			name: "universal resources",
+			handler: NewUniversalHandler(UniversalHandlerOptions{
+				Resource: Resource{GroupVersionResource: ServiceType},
+			}),
+			supported: []Action{ActionList, ActionDelete, ActionPatch, ActionAnnotate},
+		},
+		{
+			name: "restartable workloads",
+			handler: NewUniversalHandler(UniversalHandlerOptions{
+				Resource: Resource{GroupVersionResource: DeploymentType},
+			}),
+			supported: []Action{ActionList, ActionDelete, ActionPatch, ActionAnnotate, ActionRestart},
+		},
+	}
+
+	actions := []Action{
+		ActionList,
+		ActionDelete,
+		ActionPatch,
+		ActionExec,
+		ActionAnnotate,
+		ActionCordon,
+		ActionUncordon,
+		ActionDrain,
+		ActionRestart,
+		ActionEvict,
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			for _, action := range actions {
+				expected := false
+				for _, supported := range tt.supported {
+					if action == supported {
+						expected = true
+						break
+					}
+				}
+				require.Equalf(t, expected, tt.handler.SupportsAction(action), "action %s", action)
+			}
+		})
+	}
 }

@@ -41,8 +41,16 @@ func NewUniversalHandler(opts UniversalHandlerOptions) *UniversalHandler {
 	return &UniversalHandler{opts: opts}
 }
 
-func (h *UniversalHandler) IsExecutable() bool {
-	return false
+//nolint:exhaustive // unknown actions are intentionally unsupported by universal handlers.
+func (h *UniversalHandler) SupportsAction(action Action) bool {
+	switch action {
+	case ActionList, ActionDelete, ActionPatch, ActionAnnotate:
+		return true
+	case ActionRestart:
+		return SupportsRolloutRestart(h.opts.Resource.GroupVersionResource)
+	default:
+		return false
+	}
 }
 
 func (h *UniversalHandler) printResource(

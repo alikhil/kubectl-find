@@ -468,7 +468,12 @@ func hasDirectController(pod *v1.Pod, expected schema.GroupKind) bool {
 	return false
 }
 
-// IsExecutable implements ResourceHandler.
-func (p *PodHandler) IsExecutable() bool {
-	return true
+//nolint:exhaustive // unknown actions are intentionally unsupported by pod handlers.
+func (p *PodHandler) SupportsAction(action Action) bool {
+	switch action {
+	case ActionList, ActionDelete, ActionPatch, ActionExec, ActionAnnotate, ActionEvict:
+		return true
+	default:
+		return false
+	}
 }
