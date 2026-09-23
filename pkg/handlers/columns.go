@@ -847,7 +847,7 @@ func extractValueFromJSONPath(obj unstructured.Unstructured, jp *jsonpath.JSONPa
 		return v
 	case bool:
 		if v {
-			return "true"
+			return trueString
 		}
 		return "false"
 	case int64, int32, int, float64, float32:

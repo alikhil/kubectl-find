@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8s_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubectl/pkg/drain"
 )
@@ -28,7 +30,15 @@ type NodeHandler struct {
 
 const defaultDrainEvictionRetryInterval = 5 * time.Second
 
-func (h *NodeHandler) IsExecutable() bool { return false }
+//nolint:exhaustive // unknown actions are intentionally unsupported by node handlers.
+func (h *NodeHandler) SupportsAction(action Action) bool {
+	switch action {
+	case ActionList, ActionAnnotate, ActionCordon, ActionUncordon, ActionDrain:
+		return true
+	default:
+		return false
+	}
+}
 
 func (h *NodeHandler) HandleAction(ctx context.Context, options ActionOptions) error {
 	list, listErr := h.clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: options.LabelSelector})
@@ -59,6 +69,9 @@ func (h *NodeHandler) HandleAction(ctx context.Context, options ActionOptions) e
 			objects = append(objects, unstructured.Unstructured{Object: object})
 		}
 		return h.printer.PrintObjects(objects, options.Streams.Out)
+	}
+	if options.Action == ActionAnnotate {
+		return h.annotateNodes(ctx, nodes, options)
 	}
 	if options.Action != ActionCordon && options.Action != ActionUncordon && options.Action != ActionDrain {
 		return fmt.Errorf("unsupported action: %s", options.Action)
@@ -97,6 +110,39 @@ func (h *NodeHandler) HandleAction(ctx context.Context, options ActionOptions) e
 			return fmt.Errorf("failed to drain node %s: %w", node.Name, rewriteDrainFlagGuidance(err))
 		}
 		fmt.Fprintf(options.Streams.Out, "node/%s drained\n", node.Name)
+	}
+	return nil
+}
+
+func (h *NodeHandler) annotateNodes(ctx context.Context, nodes []v1.Node, options ActionOptions) error {
+	if options.Annotate.IsEmpty() {
+		return errors.New("annotation changes are required for annotate action")
+	}
+	patchBytes, err := options.Annotate.ToMergePatch()
+	if err != nil {
+		return fmt.Errorf("failed to build annotation patch: %w", err)
+	}
+	if !options.SkipConfirm {
+		fmt.Fprintln(options.Streams.ErrOut, "The following nodes will be annotated:")
+		for _, node := range nodes {
+			fmt.Fprintf(options.Streams.ErrOut, "- %s\n", node.Name)
+		}
+		if !prompts.AskForConfirmation(options.Streams) {
+			fmt.Fprintln(options.Streams.ErrOut, "Annotation cancelled.")
+			return nil
+		}
+	}
+	for _, node := range nodes {
+		if _, err = h.clientSet.CoreV1().Nodes().Patch(
+			ctx,
+			node.Name,
+			k8s_types.MergePatchType,
+			patchBytes,
+			metav1.PatchOptions{},
+		); err != nil {
+			return fmt.Errorf("failed to annotate node %s: %w", node.Name, err)
+		}
+		fmt.Fprintf(options.Streams.Out, "Annotated node %s\n", node.Name)
 	}
 	return nil
 }
@@ -203,7 +249,7 @@ func NodeConditionMatches(resource unstructured.Unstructured, options *ActionOpt
 	}
 	unschedulable, _, _ := unstructured.NestedBool(resource.Object, "spec", "unschedulable")
 	if unschedulable {
-		conditionMap["schedulingdisabled"] = "true"
+		conditionMap["schedulingdisabled"] = trueString
 	} else {
 		conditionMap["schedulingdisabled"] = "false"
 	}

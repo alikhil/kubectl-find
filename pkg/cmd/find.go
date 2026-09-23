@@ -637,10 +637,8 @@ func (o *FindOptions) Validate() error {
 	if o.force && action != handlers.ActionDelete && action != handlers.ActionDrain {
 		return errors.New("--force flag can only be used with --delete or --drain")
 	}
-
-	if action == handlers.ActionExec && !o.handler.IsExecutable() {
-		return fmt.Errorf("resource type %q does not support execution",
-			o.resourceType.GroupVersionResource.String())
+	if !o.handler.SupportsAction(action) {
+		return fmt.Errorf("%s action is not supported for %q", action, o.resourceType.PluralName)
 	}
 
 	var reg *regexp.Regexp

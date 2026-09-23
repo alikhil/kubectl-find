@@ -135,6 +135,7 @@ const (
 	UnknownStr    = "<unknown>"
 	NoneStr       = "<none>"
 	unknownString = "Unknown"
+	trueString    = "true"
 )
 
 type HandlerOptions struct {
@@ -294,7 +295,7 @@ type NodeCondition struct {
 
 // ResourceHandler is an interface that represents a generic resource handler.
 type ResourceHandler interface {
-	IsExecutable() bool
+	SupportsAction(action Action) bool
 	HandleAction(ctx context.Context, options ActionOptions) error
 }
 
