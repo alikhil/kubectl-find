@@ -56,16 +56,14 @@ func (p *TablePrinter) PrintObjects(objects []unstructured.Unstructured, out io.
 		tablewriter.WithConfig(
 			tablewriter.Config{
 				Header: tw.CellConfig{
+					Alignment: tw.CellAlignment{Global: tw.AlignLeft},
 					Formatting: tw.CellFormatting{
-						Alignment:  tw.AlignLeft, // force alignment for header
 						AutoFormat: tw.Off,
 					},
 					Padding: tw.CellPadding{Global: tw.Padding{Right: "   "}},
 				},
 				Row: tw.CellConfig{
-					Formatting: tw.CellFormatting{
-						Alignment: tw.AlignLeft, // force alightment for body
-					},
+					Alignment: tw.CellAlignment{Global: tw.AlignLeft},
 
 					// remove all padding in a in all cells
 					Padding: tw.CellPadding{Global: tw.Padding{Right: "   "}},
