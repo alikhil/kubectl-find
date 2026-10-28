@@ -1,3 +1,10 @@
+## v0.19.2 (2026-10-28)
+
+### Fix
+
+- **ci**: align Go toolchains and lint with module requirements
+- --annotation flag on nodes and refactor the code
+
 ## v0.19.1 (2026-09-23)
 
 ### Fix
