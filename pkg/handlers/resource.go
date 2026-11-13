@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8s_types "k8s.io/apimachinery/pkg/types"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -284,7 +284,7 @@ type ActionOptions struct {
 	DrainSkipWaitDeleteTimeout int
 	DrainChunkSize             int64
 
-	Streams *genericclioptions.IOStreams
+	Streams *genericiooptions.IOStreams
 }
 
 // NodeCondition represents a node condition filter with a type and expected status.

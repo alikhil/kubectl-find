@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -33,7 +33,7 @@ func TestPodsHandler(t *testing.T) {
 		in        *bytes.Buffer
 		out       *bytes.Buffer
 		errOut    *bytes.Buffer
-		streams   genericclioptions.IOStreams
+		streams   genericiooptions.IOStreams
 	}
 
 	type fields struct {
@@ -863,7 +863,7 @@ func TestPodsHandler(t *testing.T) {
 			ff := fields{}
 			ff.clientSet = fake.NewClientset(shared.resources...)
 
-			shared.streams, shared.in, shared.out, shared.errOut = genericclioptions.NewTestIOStreams()
+			shared.streams, shared.in, shared.out, shared.errOut = genericiooptions.NewTestIOStreams()
 
 			require.NoError(t, prepare(t, &ff, &shared))
 
@@ -947,5 +947,57 @@ func TestPodControllerMatcher(t *testing.T) {
 				t.Errorf("getMatcher() = %t, want %t", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestPodHandlerUnknownStatus(t *testing.T) {
+	t.Parallel()
+
+	for _, status := range []string{"unknown", "Unknown", "UNKNOWN"} {
+		for _, exclude := range []bool{false, true} {
+			name := status + "/include"
+			if exclude {
+				name = status + "/exclude"
+			}
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				require.True(t, IsValidPodStatus(status))
+				require.Equal(t, v1.PodPhase("Unknown"), ToPodPhase(status))
+
+				resources := []runtime.Object{
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{Name: "unknown-pod", Namespace: "default"},
+						Status:     v1.PodStatus{Phase: v1.PodPhase("Unknown")},
+					},
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{Name: "running-pod", Namespace: "default"},
+						Status:     v1.PodStatus{Phase: v1.PodRunning},
+					},
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{Name: "unset-phase-pod", Namespace: "default"},
+					},
+				}
+				expected := resources[:1]
+				streams, _, _, _ := genericiooptions.NewTestIOStreams()
+				options := ActionOptions{Namespace: "default", Action: ActionList, Streams: &streams}
+				if exclude {
+					options.ExcludedPodStatus = ToPodPhase(status)
+					expected = resources[1:]
+				} else {
+					options.PodStatus = ToPodPhase(status)
+				}
+
+				printer := mocks.NewMockBatchPrinter(gomock.NewController(t))
+				printer.EXPECT().
+					PrintObjects(gomock.InAnyOrder(toUL(t, expected...)), gomock.Any()).
+					Return(nil).
+					Times(1)
+				client := fake.NewClientset(resources...)
+				handler := PodHandler{clientSet: client, printer: printer}
+				require.NoError(t, handler.HandleAction(t.Context(), options))
+				require.Len(t, client.Actions(), 1)
+				assert.True(t, client.Actions()[0].Matches("list", "pods"))
+			})
+		}
 	}
 }

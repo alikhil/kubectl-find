@@ -14,7 +14,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -78,7 +78,7 @@ func TestNodeHandlerUsesKubectlDrainEvictionRetryInterval(t *testing.T) {
 
 	handler := &NodeHandler{clientSet: fake.NewSimpleClientset()}
 	helper := handler.newDrainHelper(context.Background(), ActionOptions{
-		Streams: &genericclioptions.IOStreams{Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}},
+		Streams: &genericiooptions.IOStreams{Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}},
 	})
 
 	require.Equal(t, 5*time.Second, helper.EvictErrorRetryDelay)
@@ -102,7 +102,7 @@ func TestNodeHandlerListIncludesKubeletVersion(t *testing.T) {
 	output := &bytes.Buffer{}
 	err = handler.HandleAction(context.Background(), ActionOptions{
 		Action: ActionList,
-		Streams: &genericclioptions.IOStreams{
+		Streams: &genericiooptions.IOStreams{
 			Out: output,
 		},
 	})
@@ -131,7 +131,7 @@ func TestNodeHandlerFiltersUncordonedNodesBySchedulingDisabledCondition(t *testi
 	)
 	require.NoError(t, err)
 
-	streams := &genericclioptions.IOStreams{Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}}
+	streams := &genericiooptions.IOStreams{Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}}
 	err = handler.HandleAction(context.Background(), ActionOptions{
 		Action:      ActionCordon,
 		NameRegex:   regexp.MustCompile("^worker-2$"),
@@ -150,7 +150,7 @@ func TestNodeHandlerFiltersUncordonedNodesBySchedulingDisabledCondition(t *testi
 		NodeConditions: []NodeCondition{
 			{Type: "SchedulingDisabled", Status: "False"},
 		},
-		Streams: &genericclioptions.IOStreams{Out: output},
+		Streams: &genericiooptions.IOStreams{Out: output},
 	})
 	require.NoError(t, err)
 	require.Contains(t, output.String(), "worker-1")
@@ -190,7 +190,7 @@ func TestNodeHandlerAnnotatesMatchingNodes(t *testing.T) {
 		JQQuery:       query,
 		SkipConfirm:   true,
 		Annotate:      AnnotateConfig{Add: map[string]string{"maintenance.example/enabled": "true"}},
-		Streams:       &genericclioptions.IOStreams{Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}},
+		Streams:       &genericiooptions.IOStreams{Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}},
 	})
 	require.NoError(t, err)
 

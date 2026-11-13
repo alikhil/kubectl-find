@@ -50,7 +50,8 @@ func ToPodPhase(status string) v1.PodPhase {
 	case "failed":
 		return v1.PodFailed
 	case "unknown":
-		return v1.PodUnknown
+		// Preserve support for the legacy Unknown phase in status filters.
+		return v1.PodPhase(unknownString)
 	default:
 		return ""
 	}

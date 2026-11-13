@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 )
@@ -32,7 +32,7 @@ func TestUniversalHandler(t *testing.T) {
 		in        *bytes.Buffer
 		out       *bytes.Buffer
 		errOut    *bytes.Buffer
-		streams   genericclioptions.IOStreams
+		streams   genericiooptions.IOStreams
 	}
 
 	type fields struct {
@@ -986,7 +986,7 @@ func TestUniversalHandler(t *testing.T) {
 
 			ff.client = dynamicfake.NewSimpleDynamicClient(scheme, shared.resources...)
 
-			shared.streams, shared.in, shared.out, shared.errOut = genericclioptions.NewTestIOStreams()
+			shared.streams, shared.in, shared.out, shared.errOut = genericiooptions.NewTestIOStreams()
 
 			require.NoError(t, prepare(t, &ff, &shared))
 
@@ -1042,7 +1042,7 @@ func TestUniversalHandlerRestart(t *testing.T) {
 		map[schema.GroupVersionResource]string{DeploymentType: "DeploymentList"},
 		deployment,
 	)
-	streams, _, out, _ := genericclioptions.NewTestIOStreams()
+	streams, _, out, _ := genericiooptions.NewTestIOStreams()
 	handler := NewUniversalHandler(UniversalHandlerOptions{
 		Client: client,
 		Resource: Resource{
