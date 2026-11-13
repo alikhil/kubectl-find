@@ -1,3 +1,10 @@
+## v0.19.3 (2026-11-13)
+
+### Fix
+
+- **ci**: gate Dependabot merges on successful checks
+- replace deprecated Kubernetes APIs and test unknown pod status
+
 ## v0.19.2 (2026-10-28)
 
 ### Fix
