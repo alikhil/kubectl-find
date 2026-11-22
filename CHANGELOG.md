@@ -1,3 +1,9 @@
+## v0.19.4 (2026-11-22)
+
+### Fix
+
+- preserve each resource's namespace when deleting, patching, annotating, or restarting across all namespaces
+
 ## v0.19.3 (2026-11-13)
 
 ### Fix

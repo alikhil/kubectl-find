@@ -97,16 +97,19 @@ func (h *UniversalHandler) getResources(
 	return allResources, nil
 }
 
+func (h *UniversalHandler) resourceClient(namespace string) dynamic.ResourceInterface {
+	resources := h.opts.Client.Resource(h.opts.Resource.GroupVersionResource)
+	if h.opts.Resource.IsNamespaced {
+		return resources.Namespace(namespace)
+	}
+	return resources
+}
+
 func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptions) error {
 	if options.PatchStrategy == "" {
 		options.PatchStrategy = k8s_types.StrategicMergePatchType
 	}
-	var resources dynamic.ResourceInterface
-	if h.opts.Resource.IsNamespaced {
-		resources = h.opts.Client.Resource(h.opts.Resource.GroupVersionResource).Namespace(options.Namespace)
-	} else {
-		resources = h.opts.Client.Resource(h.opts.Resource.GroupVersionResource)
-	}
+	resources := h.resourceClient(options.Namespace)
 
 	list, err := h.getResources(ctx, resources, options)
 	if err != nil {
@@ -155,7 +158,7 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 				gracePeriod := int64(0)
 				deleteOptions.GracePeriodSeconds = &gracePeriod
 			}
-			if err = resources.Delete(ctx, item.GetName(), deleteOptions); err != nil {
+			if err = h.resourceClient(item.GetNamespace()).Delete(ctx, item.GetName(), deleteOptions); err != nil {
 				return fmt.Errorf("failed to delete %s %s: %w", h.opts.Resource.SingularName, item.GetName(), err)
 			}
 			fmt.Fprintf(options.Streams.Out, "Deleted %s %s\n", h.opts.Resource.SingularName, item.GetName())
@@ -184,7 +187,8 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 		}
 		for _, item := range matchedItems {
 			patchBytes := []byte(options.Patch)
-			_, err = resources.Patch(ctx, item.GetName(), options.PatchStrategy, patchBytes, v1.PatchOptions{})
+			_, err = h.resourceClient(item.GetNamespace()).
+				Patch(ctx, item.GetName(), options.PatchStrategy, patchBytes, v1.PatchOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to patch %s %s: %w", h.opts.Resource.SingularName, item.GetName(), err)
 			}
@@ -218,7 +222,8 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 			}
 		}
 		for _, item := range matchedItems {
-			_, err = resources.Patch(ctx, item.GetName(), k8s_types.MergePatchType, patchBytes, v1.PatchOptions{})
+			_, err = h.resourceClient(item.GetNamespace()).
+				Patch(ctx, item.GetName(), k8s_types.MergePatchType, patchBytes, v1.PatchOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to annotate %s %s: %w", h.opts.Resource.SingularName, item.GetName(), err)
 			}
@@ -260,7 +265,7 @@ func (h *UniversalHandler) HandleAction(ctx context.Context, options ActionOptio
 					return errors.New("can't restart paused deployment (run rollout resume first)")
 				}
 			}
-			if _, err = resources.Patch(
+			if _, err = h.resourceClient(item.GetNamespace()).Patch(
 				ctx,
 				item.GetName(),
 				k8s_types.MergePatchType,
